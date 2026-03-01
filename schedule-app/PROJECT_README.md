@@ -61,8 +61,8 @@ build_apk.bat
 ### 5.2 GitHub 发布
 
 - 仓库：`Xio-Shark/aoxiang-kebiao`
-- Release 标签：`v1.0.0`
-- 发布资产：`aoxiang-kebiao.apk`
+- Release 标签：`v1.0.1`
+- 发布资产：`aoxiang-kebiao-v1.0.1.apk`
 
 ## 6. 已知注意事项
 

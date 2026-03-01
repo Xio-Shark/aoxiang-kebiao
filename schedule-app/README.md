@@ -4,6 +4,8 @@
 
 - Flutter 移动端应用（`mobile_app`）
 - Go 解析服务（`parsing_service`）
+当前发布版本：`1.0.1`
+
 
 ## 目录结构
 
@@ -52,6 +54,13 @@ flutter run
 cd parsing_service
 go mod tidy
 go run cmd/server/main.go
+```
+
+### 3. Docker 启动解析服务
+
+```bash
+cp .env.example .env
+docker compose up -d --build
 ```
 
 ## 打包 APK（Windows）

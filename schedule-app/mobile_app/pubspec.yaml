@@ -1,9 +1,8 @@
-﻿name: aoxiang_schedule
-description: 璇剧▼琛ㄥ簲鐢?- Flutter Clean Architecture
-
+name: aoxiang_schedule
+description: 课表应用 - Flutter Clean Architecture
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -11,27 +10,30 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
-  # 鐘舵€佺鐞?  flutter_riverpod: ^2.4.9
-  
-  # 鏈湴瀛樺偍
+
+  # 状态管理
+  flutter_riverpod: ^2.4.9
+
+  # 本地存储
   shared_preferences: ^2.2.2
-  
-  # 缃戠粶璇锋眰
+
+  # 网络请求
   http: ^1.1.0
   dio: ^5.4.0
-  
-  # 宸ュ叿
+
+  # 工具
   intl: ^0.18.1
   equatable: ^2.0.5
-  
-  # UI缁勪欢
+
+  # UI 组件
   flutter_colorpicker: ^1.0.3
-  file_picker: ^6.1.1
-  
-  # 鏂囦欢澶勭悊
+  file_picker: ^10.3.10
+
+  # 文件处理
   path_provider: ^2.1.1
   path: ^1.8.3
+  archive: ^3.6.1
+  xml: ^6.5.0
 
 dev_dependencies:
   flutter_test:
@@ -40,10 +42,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
+
   assets:
     - assets/images/
     - assets/fonts/
     - assets/backgrounds/
-
-
