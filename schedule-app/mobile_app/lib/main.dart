@@ -1,5 +1,4 @@
-/// 应用入口
-
+﻿/// 应用入口
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,28 +8,28 @@ import 'presentation/pages/schedule_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 初始化SharedPreferences
+
+  // 初始化本地存储实例
   final prefs = await SharedPreferences.getInstance();
-  
+
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
       ],
-      child: const WakeUpScheduleApp(),
+      child: const AoxiangScheduleApp(),
     ),
   );
 }
 
 /// 应用根组件
-class WakeUpScheduleApp extends StatelessWidget {
-  const WakeUpScheduleApp({super.key});
+class AoxiangScheduleApp extends StatelessWidget {
+  const AoxiangScheduleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'WakeUp课程表',
+      title: 'aoxiang课程表',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

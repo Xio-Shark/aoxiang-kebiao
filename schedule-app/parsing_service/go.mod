@@ -1,4 +1,4 @@
-module github.com/wakeup/schedule-parser
+﻿module github.com/aoxiang/schedule-parser
 
 go 1.21
 
@@ -34,3 +34,5 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+
