@@ -4,7 +4,7 @@
 
 ## 1. 仓库总览
 
-- `翱翔课表.apk`：本地发布 APK（根目录）
+- `apk_output/aoxiang-kebiao-v1.0.1.apk`：最终发布 APK
 - `schedule-app/`：开发源码
   - `mobile_app/`：Flutter Android 客户端
   - `parsing_service/`：Go 课表解析服务
@@ -14,22 +14,22 @@
 
 - 应用名称：aoxiang 课表
 - 包名：`com.example.aoxiang_schedule`
-- 版本：`1.0.0`
+- 版本：`1.0.1`
 - 最低系统：Android 7.0（API 24）
 - 目标系统：Android 16（API 36）
 
 ### Release
 
-- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.0`
-- APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.0/aoxiang-kebiao.apk`
+- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.1`
+- APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.1/aoxiang-kebiao-v1.0.1.apk`
 
 ### APK 校验
 
-- 文件名：`aoxiang-kebiao.apk`
+- 文件名：`aoxiang-kebiao-v1.0.1.apk`
 - SHA256：
 
 ```text
-ED823B2B3F382EC1C60E5444B8644348CDC16E96AB0457E62B48BAD9A64395DF
+04731FA395A336B1713048B0F847E57F7B7A44AF1EB6EDAFCD9FD3B4F1CDB625
 ```
 
 ## 3. 安装与使用
@@ -37,7 +37,7 @@ ED823B2B3F382EC1C60E5444B8644348CDC16E96AB0457E62B48BAD9A64395DF
 ### 3.1 安装
 
 ```bash
-adb install -r aoxiang-kebiao.apk
+adb install -r apk_output/aoxiang-kebiao-v1.0.1.apk
 ```
 
 或在手机本地直接安装 APK（允许未知来源安装）。
