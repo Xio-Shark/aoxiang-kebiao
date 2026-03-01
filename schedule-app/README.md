@@ -1,47 +1,52 @@
-﻿# 璇剧▼琛ㄥ簲鐢?- aoxiang Schedule
+﻿# aoxiang 课表（schedule-app）
 
-鍩轰簬 Flutter Clean Architecture + Go 瑙ｆ瀽鏈嶅姟鐨勮绋嬭〃搴旂敤銆?
-## 椤圭洰缁撴瀯
+本目录是翱翔课表的开发源码，包含：
 
-```
+- Flutter 移动端应用（`mobile_app`）
+- Go 解析服务（`parsing_service`）
+
+## 目录结构
+
+```text
 schedule-app/
-鈹溾攢鈹€ mobile_app/          # Flutter 绉诲姩绔?鈹?  鈹溾攢鈹€ lib/
-鈹?  鈹?  鈹溾攢鈹€ core/        # 鏍稿績妯″潡锛堥敊璇鐞嗐€佺粨鏋滅被鍨嬨€佸父閲忥級
-鈹?  鈹?  鈹溾攢鈹€ domain/      # 棰嗗煙灞傦紙瀹炰綋銆丷epository鎺ュ彛锛?鈹?  鈹?  鈹溾攢鈹€ data/        # 鏁版嵁灞傦紙Models銆佹湰鍦板瓨鍌級
-鈹?  鈹?  鈹溾攢鈹€ application/ # 搴旂敤灞傦紙UseCases銆丳roviders锛?鈹?  鈹?  鈹斺攢鈹€ presentation/# 琛ㄧ幇灞傦紙椤甸潰銆佺粍浠躲€乂iewModels锛?鈹?  鈹溾攢鈹€ test/            # 鍗曞厓娴嬭瘯
-鈹?  鈹斺攢鈹€ integration_test/# 闆嗘垚娴嬭瘯
-鈹?鈹斺攢鈹€ parsing_service/     # Go 瑙ｆ瀽寰湇鍔?    鈹溾攢鈹€ internal/        # 鍐呴儴瀹炵幇
-    鈹?  鈹溾攢鈹€ parser/      # DOCX瑙ｆ瀽
-    鈹?  鈹溾攢鈹€ recognizer/  # 鏂囨湰璇嗗埆
-    鈹?  鈹溾攢鈹€ api/         # HTTP API
-    鈹?  鈹斺攢鈹€ model/       # 鏁版嵁妯″瀷
-    鈹溾攢鈹€ pkg/             # 鍏叡鍖?    鈹斺攢鈹€ cmd/             # 鍏ュ彛鐐?```
+├─ mobile_app/                # Flutter 客户端
+│  ├─ lib/                    # 业务代码
+│  ├─ android/                # Android 工程
+│  ├─ pubspec.yaml            # Flutter 依赖
+│  └─ BUILD.md                # 移动端构建说明
+├─ parsing_service/           # Go 解析服务
+│  ├─ cmd/server/             # 服务入口
+│  ├─ internal/               # 业务实现
+│  ├─ go.mod                  # Go 依赖声明
+│  └─ Dockerfile              # 容器构建文件
+├─ build_apk.bat              # Windows 一键构建脚本
+├─ build_apk.ps1              # PowerShell 构建脚本
+└─ PROJECT_README.md          # 项目说明（详细）
+```
 
-## 鎶€鏈爤
+## 开发环境
 
-### 绉诲姩绔?(Flutter)
-- **鐘舵€佺鐞?*: Riverpod 2.x
-- **鏋舵瀯妯″紡**: Clean Architecture
-- **涓嶅彲鍙樻暟鎹?*: Freezed
-- **鏈湴瀛樺偍**: SharedPreferences
-- **缃戠粶璇锋眰**: Dio / HTTP
+### Flutter 客户端
 
-### 鍚庣 (Go)
-- **DOCX瑙ｆ瀽**: unioffice/v2
-- **HTTP妗嗘灦**: Gin
-- **鏃ュ織**: Logrus
-- **閰嶇疆**: YAML
+- Flutter 3.x
+- Dart 3.x
+- Android SDK（含 platform-tools）
 
-## 蹇€熷紑濮?
-### Flutter 绉诲姩绔?
+### Go 解析服务
+
+- Go 1.21+
+
+## 快速开始
+
+### 1. 运行 Flutter 客户端
+
 ```bash
 cd mobile_app
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
-### Go 瑙ｆ瀽鏈嶅姟
+### 2. 运行 Go 解析服务
 
 ```bash
 cd parsing_service
@@ -49,18 +54,26 @@ go mod tidy
 go run cmd/server/main.go
 ```
 
-## 鍔熻兘鐗规€?
-- 鉁?璇剧▼琛ㄥ睍绀猴紙鎸夊懆娆°€佹槦鏈熴€佽妭娆★級
-- 鉁?鍗曞弻鍛ㄨ绋嬫樉绀?- 鉁?浠嶹ord鏂囨。瀵煎叆璇剧▼琛?- 鉁?鍛ㄦ鑷姩璁＄畻
-- 鉁?璇剧▼璇︽儏鏌ョ湅涓庣紪杈?- 鉁?瀛︽湡璁剧疆
+## 打包 APK（Windows）
 
-## 浠ｇ爜瑙勮寖
+在 `schedule-app` 目录执行：
 
-- 閬靛惊 Clean Architecture 鍒嗗眰鍘熷垯
-- Presentation灞備笉鐩存帴璁块棶Data灞?- Repository閫氳繃鎺ュ彛璋冪敤
-- Domain灞備笉渚濊禆Flutter妗嗘灦
+```bat
+build_apk.bat
+```
 
-## 璁稿彲璇?
-MIT
+或：
 
+```powershell
+.\build_apk.ps1
+```
 
+## 当前命名约定
+
+- 应用标识：`aoxiang_schedule`
+- Android 包名：`com.example.aoxiang_schedule`
+- Go 模块：`github.com/aoxiang/schedule-parser`
+
+## 许可证
+
+本项目遵循 MIT License，见仓库根目录 `LICENSE`。
