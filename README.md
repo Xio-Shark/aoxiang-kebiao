@@ -1,88 +1,67 @@
-﻿# 翱翔课表
+﻿# 翱翔课表（aoxiang-kebiao）
 
-基于 Android 的课表应用发布仓库，提供可直接安装的 APK 与使用说明。
+Android 课表应用发布仓库，提供 APK 下载、导入说明和源码目录。
 
-## 目录结构
+## 仓库内容
 
-- `翱翔课表.apk`：应用安装包
-- `README.md`：项目说明与使用文档
+- `翱翔课表.apk`：本地发布包（仓库根目录）
+- `schedule-app/`：Flutter + Go 开发源码
+- `LICENSE`：MIT 开源许可证
 
 ## 应用信息
 
-- 应用名：aoxiang Schedule（翱翔课表发布版）
+- 应用名称：aoxiang 课表
 - 包名：`com.example.aoxiang_schedule`
-- 版本号：`1.0.0`
-- 版本编码：`1`
+- 版本：`1.0.0`
 - 最低系统：Android 7.0（API 24）
 - 目标系统：Android 16（API 36）
 
-## APK 校验信息
+## 发布下载
 
-- 文件名：`翱翔课表.apk`
+- Release 页面：
+  `https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.0`
+- APK 直链：
+  `https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.0/aoxiang-kebiao.apk`
+
+## APK 校验
+
+- 文件名：`aoxiang-kebiao.apk`
 - SHA256：
 
 ```text
 ED823B2B3F382EC1C60E5444B8644348CDC16E96AB0457E62B48BAD9A64395DF
 ```
 
-## 安装方式
+## 安装
 
 ### 方式一：手机本地安装
 
-1. 下载 `翱翔课表.apk` 到手机。
-2. 打开安装包并授权“允许安装未知应用”。
-3. 完成安装后启动应用。
+1. 下载 `aoxiang-kebiao.apk`。
+2. 允许“未知来源应用安装”。
+3. 安装并启动。
 
 ### 方式二：ADB 安装
 
 ```bash
-adb install -r 翱翔课表.apk
+adb install -r aoxiang-kebiao.apk
 ```
 
-## 导入课表（推荐流程）
+## 课表导入
 
-1. 打开应用主页。
-2. 点击右下角 `导入课程`。
-3. 选择 `选择文件并导入`。
-4. 在系统文件选择器中进入 `Downloads`（或课表文件所在目录）。
-5. 选择 `.docx` 或 `.json` 文件完成导入。
+推荐使用系统文件选择器导入：
 
-## 导入失败排查
+1. 打开应用，进入 `导入课程`。
+2. 点击 `选择文件并导入`。
+3. 在系统文件管理器中选择 `.docx` 或 `.json` 文件。
 
-### 1. 按路径导入失败（Android 13/14 常见）
+说明：Android 13/14 上“按路径导入 docx”可能因存储权限限制失败。
 
-现象：提示无法访问文件，或日志出现 `Permission to access file ... denied`。
+## 开源许可证
 
-处理：
+本项目使用 MIT License，见 [LICENSE](./LICENSE)。
 
-- 不使用“按路径导入 docx”。
-- 改用 `选择文件并导入`，通过系统文件选择器选择文件。
+## 更新记录
 
-### 2. 文件类型不支持
-
-仅支持：
-
-- `.docx`
-- `.json`
-
-### 3. 导入后无课程
-
-检查点：
-
-- 文档内容是否包含课程名称、上课周次、节次、地点。
-- 当前导入开关是否设置为覆盖或合并。
-
-## 发布记录
-
-- 2026-02-28：导出 APK：`aoxiang_schedule_release_20260228-213602.apk`
-- 2026-03-01：发布仓库版本：`翱翔课表.apk`
-
-## 许可证
-
-如需开源许可证，请在后续版本补充 `LICENSE` 文件。
-
-## 目录清理记录
-
-- 2026-03-01：已清理上级工作目录，仅保留 翱翔课表 发布目录。
-
-
+- 2026-03-01：命名统一为 `aoxiang`
+- 2026-03-01：新增 MIT 许可证
+- 2026-03-01：发布 `v1.0.0`，上传 `aoxiang-kebiao.apk`
