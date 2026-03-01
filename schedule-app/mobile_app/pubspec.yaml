@@ -1,0 +1,48 @@
+name: wakeup_schedule
+description: 课程表应用 - Flutter Clean Architecture
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # 状态管理
+  flutter_riverpod: ^2.4.9
+  
+  # 本地存储
+  shared_preferences: ^2.2.2
+  
+  # 网络请求
+  http: ^1.1.0
+  dio: ^5.4.0
+  
+  # 工具
+  intl: ^0.18.1
+  equatable: ^2.0.5
+  
+  # UI组件
+  flutter_colorpicker: ^1.0.3
+  file_picker: ^6.1.1
+  
+  # 文件处理
+  path_provider: ^2.1.1
+  path: ^1.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/fonts/
+    - assets/backgrounds/
