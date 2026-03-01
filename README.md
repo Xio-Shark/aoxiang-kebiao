@@ -9,8 +9,8 @@
 
 ## 应用信息
 
-- 应用名：WakeUp Schedule（翱翔课表发布版）
-- 包名：`com.example.wakeup_schedule`
+- 应用名：aoxiang Schedule（翱翔课表发布版）
+- 包名：`com.example.aoxiang_schedule`
 - 版本号：`1.0.0`
 - 版本编码：`1`
 - 最低系统：Android 7.0（API 24）
@@ -74,7 +74,7 @@ adb install -r 翱翔课表.apk
 
 ## 发布记录
 
-- 2026-02-28：导出 APK：`wakeup_schedule_release_20260228-213602.apk`
+- 2026-02-28：导出 APK：`aoxiang_schedule_release_20260228-213602.apk`
 - 2026-03-01：发布仓库版本：`翱翔课表.apk`
 
 ## 许可证
@@ -84,3 +84,5 @@ adb install -r 翱翔课表.apk
 ## 目录清理记录
 
 - 2026-03-01：已清理上级工作目录，仅保留 翱翔课表 发布目录。
+
+

@@ -1,5 +1,5 @@
-name: wakeup_schedule
-description: 课程表应用 - Flutter Clean Architecture
+﻿name: aoxiang_schedule
+description: 璇剧▼琛ㄥ簲鐢?- Flutter Clean Architecture
 
 publish_to: 'none'
 
@@ -12,25 +12,24 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # 状态管理
-  flutter_riverpod: ^2.4.9
+  # 鐘舵€佺鐞?  flutter_riverpod: ^2.4.9
   
-  # 本地存储
+  # 鏈湴瀛樺偍
   shared_preferences: ^2.2.2
   
-  # 网络请求
+  # 缃戠粶璇锋眰
   http: ^1.1.0
   dio: ^5.4.0
   
-  # 工具
+  # 宸ュ叿
   intl: ^0.18.1
   equatable: ^2.0.5
   
-  # UI组件
+  # UI缁勪欢
   flutter_colorpicker: ^1.0.3
   file_picker: ^6.1.1
   
-  # 文件处理
+  # 鏂囦欢澶勭悊
   path_provider: ^2.1.1
   path: ^1.8.3
 
@@ -46,3 +45,5 @@ flutter:
     - assets/images/
     - assets/fonts/
     - assets/backgrounds/
+
+
