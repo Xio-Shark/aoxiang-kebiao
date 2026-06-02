@@ -154,7 +154,7 @@ class MergeCoursesUseCase {
         final merged = await _repository.mergeAdjacentCourses(courses);
         return merged;
       },
-      failure: Result.failure,
+      failure: (failure) async => Result.failure(failure),
     );
   }
 }

@@ -6,7 +6,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/result/result.dart';
 import '../../models/course_model.dart';
-import 'course_local_data_source.dart';
+
+abstract interface class CourseLocalDataSource {
+  Future<Result<void>> saveCourses(List<CourseModel> courses);
+
+  Future<Result<List<CourseModel>>> getCourses();
+
+  Future<Result<void>> clearCourses();
+
+  Future<Result<void>> saveTermStartDate(DateTime date);
+
+  Future<Result<DateTime?>> getTermStartDate();
+
+  Future<Result<void>> saveCampus(String campus);
+
+  Future<Result<String>> getCampus();
+}
 
 /// SharedPreferences本地数据源实现
 class SharedPrefsDataSource implements CourseLocalDataSource {

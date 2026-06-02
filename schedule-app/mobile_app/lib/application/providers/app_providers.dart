@@ -233,7 +233,7 @@ final currentWeekProvider = FutureProvider<int>((ref) async {
 
   return result.when(
     success: (week) => week,
-    failure: (_) => 1,
+    failure: (failure) => throw StateError(failure.message),
   );
 });
 
@@ -256,7 +256,7 @@ final scheduleProvider = FutureProvider<List<Course>>((ref) async {
 
   return result.when(
     success: (courses) => courses,
-    failure: (_) => [],
+    failure: (failure) => throw StateError(failure.message),
   );
 });
 
