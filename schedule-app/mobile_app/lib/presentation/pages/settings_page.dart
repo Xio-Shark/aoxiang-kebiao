@@ -119,7 +119,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             child: ListTile(
               leading: const Icon(Icons.file_download_outlined),
               title: const Text('导入课表'),
-              subtitle: const Text('从文件导入课程数据'),
+              subtitle: const Text('教务系统直接导入 / 文件解析 / 剪贴板嗅探'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.of(context).push(

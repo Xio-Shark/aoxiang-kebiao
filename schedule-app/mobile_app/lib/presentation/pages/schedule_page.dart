@@ -10,6 +10,7 @@ import '../widgets/schedule_background.dart';
 import '../widgets/schedule_grid.dart';
 import '../widgets/schedule_message.dart';
 import '../widgets/week_selector.dart';
+import 'jiaowu_web_import_page.dart';
 import 'settings_page.dart';
 
 class SchedulePage extends ConsumerStatefulWidget {
@@ -205,6 +206,17 @@ class _ScheduleAppBar extends StatelessWidget implements PreferredSizeWidget {
             selectedWeek: selectedWeek,
             onChanged: onWeekChanged,
           ),
+        ),
+        _ToolbarIconButton(
+          icon: Icons.language_rounded,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const JiaowuWebImportPage(),
+              ),
+            );
+          },
+          tooltip: '教务导入',
         ),
         _ToolbarIconButton(
           icon: Icons.tune_rounded,

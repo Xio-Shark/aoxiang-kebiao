@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers/app_providers.dart';
 import '../../domain/entities/course.dart';
 
+import 'jiaowu_web_import_page.dart';
+
 class ImportPage extends ConsumerStatefulWidget {
   const ImportPage({super.key});
 
@@ -208,6 +210,30 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.45),
+            child: ListTile(
+              leading: Icon(
+                Icons.language_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 28,
+              ),
+              title: const Text(
+                '教务系统直接导入',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text('通过网页登录翱翔教务，一键自动嗅探导入'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const JiaowuWebImportPage(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
           Card(
             child: ListTile(
               leading: const Icon(Icons.insert_drive_file_outlined),
