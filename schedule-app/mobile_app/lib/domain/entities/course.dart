@@ -30,7 +30,7 @@ class Course {
     required this.endWeek,
     this.weekPattern = WeekPattern.all,
     this.customWeeks = const [],
-    this.color = 0xFFE57373,
+    this.color = 0xFF4F779A,
     this.note = '',
   });
 
@@ -47,7 +47,7 @@ class Course {
     required int endWeek,
     WeekPattern weekPattern = WeekPattern.all,
     List<int> customWeeks = const [],
-    int color = 0xFFE57373,
+    int color = 0xFF4F779A,
     String note = '',
   }) {
     assert(weekday >= 1 && weekday <= 7, '星期必须在1-7之间');

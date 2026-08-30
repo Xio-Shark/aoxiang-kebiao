@@ -70,36 +70,53 @@ class TimeColumn extends StatelessWidget {
               : null;
 
           return Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '$section',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                  ),
-                ),
-                if (time != null) ...[
-                  Text(
-                    time['start']!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
-                      fontSize: 8.5,
-                      height: 1.1,
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$section',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 10.5,
+                        height: 1,
+                      ),
                     ),
                   ),
-                  Text(
-                    time['end']!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
-                      fontSize: 8,
-                      height: 1.1,
+                  if (time != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      time['start']!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.0,
+                      ),
                     ),
-                  ),
+                    Text(
+                      time['end']!,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+                        fontSize: 8,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         }),

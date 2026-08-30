@@ -4,6 +4,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/datasources/aoxiang_jiaowu_adapter.dart';
 import '../../data/datasources/course_file_import_data_source.dart';
 import '../../data/datasources/course_local_data_source.dart';
 import '../../data/repositories/course_repository_impl.dart';
@@ -29,6 +30,11 @@ final localDataSourceProvider = Provider<CourseLocalDataSource>(
 /// 文件导入数据源 Provider
 final courseFileImportDataSourceProvider = Provider<CourseFileImportDataSource>(
   (ref) => LocalCourseFileImportDataSource(),
+);
+
+/// 翱翔教务适配器 Provider
+final aoxiangJiaowuAdapterProvider = Provider<AoxiangJiaowuAdapter>(
+  (ref) => AoxiangJiaowuAdapter(),
 );
 
 /// Repository Provider

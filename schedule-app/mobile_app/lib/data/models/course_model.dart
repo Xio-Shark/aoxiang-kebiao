@@ -134,13 +134,16 @@ class CourseModel extends Course {
     }
     final text = value?.toString().trim();
     if (text == null || text.isEmpty) {
-      return 0xFFE57373;
+      return 0xFF4F779A;
     }
     final normalized = text.replaceFirst('#', '').replaceFirst('0x', '');
-    if (normalized.length == 6) {
-      return int.tryParse('FF$normalized', radix: 16) ?? 0xFFE57373;
+    if (normalized.isEmpty) {
+      return 0xFF4F779A;
     }
-    return int.tryParse(normalized, radix: 16) ?? 0xFFE57373;
+    if (normalized.length == 6) {
+      return int.tryParse('FF$normalized', radix: 16) ?? 0xFF4F779A;
+    }
+    return int.tryParse(normalized, radix: 16) ?? 0xFF4F779A;
   }
 
   static List<int> _readIntList(Map<String, dynamic> json, List<String> keys) {

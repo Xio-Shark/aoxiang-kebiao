@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 
+import '../../core/constants/course_color_palette.dart';
 import '../../core/error/failure.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/course.dart';
@@ -12,6 +13,38 @@ class AoxiangJiaowuAdapter {
   final Dio _dio;
 
   AoxiangJiaowuAdapter({Dio? dio}) : _dio = dio ?? Dio();
+
+  /// 从网页 HTML 内容或包含 JSON 的响应中解析课程
+  List<Course> parseRawContent(String rawContent) {
+    final trimmed = rawContent.trim();
+    if (trimmed.isEmpty) return [];
+
+    // 1. 尝试作为 JSON 数据解析
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        final decoded = json.decode(trimmed);
+        if (decoded is Map<String, dynamic>) {
+          return parseJiaowuResponse(decoded);
+        } else if (decoded is List) {
+          return parseJiaowuResponse({'kbList': decoded});
+        }
+      } catch (_) {}
+    }
+
+    // 2. 如果包含嵌入的 JSON（常见于教务系统的内嵌 script 标签中）
+    final jsonMatch = RegExp(r'kbList\s*[:=]\s*(\[.*?\]);?', dotAll: true).firstMatch(trimmed);
+    if (jsonMatch != null) {
+      try {
+        final decoded = json.decode(jsonMatch.group(1)!);
+        if (decoded is List) {
+          return parseJiaowuResponse({'kbList': decoded});
+        }
+      } catch (_) {}
+    }
+
+    // 3. 尝试解析 HTML 课表
+    return parseHtmlSchedule(trimmed);
+  }
 
   /// 从西工大翱翔教务接口 JSON 响应结构中转换课程列表
   /// 支持翱翔教务导出的特定结构与通用教务课表接口
@@ -56,6 +89,70 @@ class AoxiangJiaowuAdapter {
         endWeek: weekSpec.end,
         weekPattern: weekSpec.pattern,
         customWeeks: weekSpec.customWeeks,
+        color: CourseColorPalette.getColorForName(name),
+      ));
+    }
+
+    return list;
+  }
+
+  /// 从标准 HTML 课表格子中智能提取课程
+  List<Course> parseHtmlSchedule(String html) {
+    final list = <Course>[];
+    var counter = 1;
+
+    // 正则提取常见课表单元格
+    final cellRegex = RegExp(
+      r'<td[^>]*class="[^"]*(?:timetable|kebiao|kb|kb_cell)[^"]*"[^>]*>(.*?)</td>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+
+    final matches = cellRegex.allMatches(html);
+    for (final match in matches) {
+      final cellContent = match.group(1) ?? '';
+      final textLines = cellContent
+          .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+          .replaceAll(RegExp(r'<[^>]+>'), '')
+          .split('\n')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      if (textLines.isEmpty) continue;
+      final name = textLines.first;
+      if (name.length < 2) continue;
+
+      var teacher = '';
+      var classroom = '';
+      var weeksStr = '1-16周';
+
+      for (var i = 1; i < textLines.length; i++) {
+        final line = textLines[i];
+        if (line.contains('周')) {
+          weeksStr = line;
+        } else if (line.contains('教') || line.contains('楼') || line.contains('室') || line.contains('区')) {
+          classroom = line;
+        } else if (teacher.isEmpty && line.length <= 6) {
+          teacher = line;
+        }
+      }
+
+      final weekSpec = _parseWeekString(weeksStr);
+      list.add(Course(
+        id: 'nwpu-html-${counter++}',
+        name: name,
+        teacher: teacher,
+        classroom: classroom,
+        campus: '长安校区',
+        weekday: 1,
+        startSection: 1,
+        sectionCount: 2,
+        startWeek: weekSpec.start,
+        endWeek: weekSpec.end,
+        weekPattern: weekSpec.pattern,
+        customWeeks: weekSpec.customWeeks,
+        color: CourseColorPalette.getColorForName(name),
       ));
     }
 
