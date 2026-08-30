@@ -14,14 +14,15 @@
 
 - 应用名称：aoxiang 课表
 - 包名：`com.example.aoxiang_schedule`
-- 版本：`1.0.2`
-- 最低系统：Android 7.0（API 24）
+- 版本：`1.0.3`
+- 最低系统：Android 7.0（API 24） / iOS 12.0
 - 目标系统：Android 16（API 36）
 
 ### Release
 
-- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.2`
-- APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.2/aoxiang-kebiao-v1.0.2.apk`
+- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.3`
+- Android APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.3/aoxiang-kebiao-v1.0.2.apk`
+- iOS IPA：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.3/aoxiang-kebiao-ios-unsigned.ipa`
 
 ### APK 校验
 
