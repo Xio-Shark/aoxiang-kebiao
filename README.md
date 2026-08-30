@@ -1,12 +1,12 @@
-﻿# 翱翔课表（aoxiang-kebiao）
+# 翱翔课表（aoxiang-kebiao）
 
 本仓库包含翱翔课表的发布包与完整开发源码。
 
 ## 1. 仓库总览
 
-- `apk_output/aoxiang-kebiao-v1.0.1.apk`：最终发布 APK
+- `apk_output/aoxiang-kebiao-v1.0.2.apk`：最终发布 APK
 - `schedule-app/`：开发源码
-  - `mobile_app/`：Flutter Android 客户端
+  - `mobile_app/`：Flutter Android/iOS 客户端
   - `parsing_service/`：Go 课表解析服务
 - `LICENSE`：MIT 开源许可证
 
@@ -14,22 +14,22 @@
 
 - 应用名称：aoxiang 课表
 - 包名：`com.example.aoxiang_schedule`
-- 版本：`1.0.1`
+- 版本：`1.0.2`
 - 最低系统：Android 7.0（API 24）
 - 目标系统：Android 16（API 36）
 
 ### Release
 
-- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.1`
-- APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.1/aoxiang-kebiao-v1.0.1.apk`
+- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.2`
+- APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.2/aoxiang-kebiao-v1.0.2.apk`
 
 ### APK 校验
 
-- 文件名：`aoxiang-kebiao-v1.0.1.apk`
+- 文件名：`aoxiang-kebiao-v1.0.2.apk`
 - SHA256：
 
 ```text
-04731FA395A336B1713048B0F847E57F7B7A44AF1EB6EDAFCD9FD3B4F1CDB625
+ED823B2B3F382EC1C60E5444B8644348CDC16E96AB0457E62B48BAD9A64395DF
 ```
 
 ## 3. 安装与使用
@@ -37,7 +37,7 @@
 ### 3.1 安装
 
 ```bash
-adb install -r apk_output/aoxiang-kebiao-v1.0.1.apk
+adb install -r apk_output/aoxiang-kebiao-v1.0.2.apk
 ```
 
 或在手机本地直接安装 APK（允许未知来源安装）。
