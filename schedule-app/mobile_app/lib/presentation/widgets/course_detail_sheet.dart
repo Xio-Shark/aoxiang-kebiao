@@ -2,18 +2,36 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/course.dart';
 
-class CourseDetailSheet extends StatelessWidget {
+class CourseDetailSheet extends StatefulWidget {
   final Course course;
+  final List<Course> overlappingCourses;
 
   const CourseDetailSheet({
     super.key,
     required this.course,
+    this.overlappingCourses = const [],
   });
+
+  @override
+  State<CourseDetailSheet> createState() => _CourseDetailSheetState();
+}
+
+class _CourseDetailSheetState extends State<CourseDetailSheet> {
+  late Course _currentCourse;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCourse = widget.course;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final courseColor = Color(course.color);
+    final courseColor = Color(_currentCourse.color);
+    final allCourses = widget.overlappingCourses.isEmpty
+        ? [_currentCourse]
+        : widget.overlappingCourses;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -28,34 +46,74 @@ class CourseDetailSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SheetHeader(course: course, courseColor: courseColor),
+              if (allCourses.length > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.layers_outlined, size: 16, color: theme.colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        '发现 ${allCourses.length} 门重叠课程，请选择查看：',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: allCourses.map((c) {
+                      final isSelected = c.id == _currentCourse.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8, bottom: 12),
+                        child: ChoiceChip(
+                          label: Text(c.name),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _currentCourse = c;
+                              });
+                            }
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+              _SheetHeader(course: _currentCourse, courseColor: courseColor),
               const SizedBox(height: 18),
               _DetailRow(
                 icon: Icons.person_outline_rounded,
                 label: '教师',
-                value: course.teacher.isEmpty ? '未设置' : course.teacher,
+                value: _currentCourse.teacher.isEmpty ? '未设置' : _currentCourse.teacher,
               ),
               _DetailRow(
                 icon: Icons.place_outlined,
                 label: '教室',
-                value: course.classroom.isEmpty ? '未设置' : course.classroom,
+                value: _currentCourse.classroom.isEmpty ? '未设置' : _currentCourse.classroom,
               ),
               _DetailRow(
                 icon: Icons.date_range_outlined,
                 label: '周次',
-                value: course.weekDisplayText,
+                value: _currentCourse.weekDisplayText,
               ),
-              if (course.campus.isNotEmpty)
+              if (_currentCourse.campus.isNotEmpty)
                 _DetailRow(
                   icon: Icons.apartment_rounded,
                   label: '校区',
-                  value: course.campus,
+                  value: _currentCourse.campus,
                 ),
-              if (course.note.isNotEmpty)
+              if (_currentCourse.note.isNotEmpty)
                 _DetailRow(
                   icon: Icons.notes_rounded,
                   label: '备注',
-                  value: course.note,
+                  value: _currentCourse.note,
                 ),
             ],
           ),
@@ -138,12 +196,12 @@ class _DetailRow extends StatelessWidget {
           Icon(icon, size: 19, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
           SizedBox(
-            width: 42,
+            width: 48,
             child: Text(
               label,
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -151,6 +209,7 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               value,
               style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -163,8 +222,8 @@ class _DetailRow extends StatelessWidget {
 
 String _weekdayName(int weekday) {
   const names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  if (weekday < 1 || weekday > names.length) {
-    return '星期$weekday';
+  if (weekday < 1 || weekday > 7) {
+    return '未知周';
   }
   return names[weekday - 1];
 }

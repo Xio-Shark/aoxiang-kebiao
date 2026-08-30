@@ -22,24 +22,39 @@ class SchedulePage extends ConsumerStatefulWidget {
 }
 
 class _SchedulePageState extends ConsumerState<SchedulePage> {
-  bool _isForward = true;
+  late final PageController _pageController;
 
-  void _changeWeek(int targetWeek) {
-    final currentWeek = ref.read(selectedWeekProvider);
-    final nextWeek = targetWeek.clamp(
+  @override
+  void initState() {
+    super.initState();
+    final initialWeek = ref.read(selectedWeekProvider);
+    _pageController = PageController(initialPage: initialWeek - 1);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _changeWeek(int targetWeek, {bool animate = true}) {
+    final clamped = targetWeek.clamp(
       WeekSelector.minWeek,
       WeekSelector.maxWeek,
     ).toInt();
 
-    if (nextWeek == currentWeek) {
-      return;
+    if (_pageController.hasClients) {
+      if (animate) {
+        _pageController.animateToPage(
+          clamped - 1,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        _pageController.jumpToPage(clamped - 1);
+      }
     }
-
-    setState(() {
-      _isForward = nextWeek > currentWeek;
-    });
-    ref.read(selectedWeekProvider.notifier).state = nextWeek;
-    ref.invalidate(scheduleProvider);
+    ref.read(selectedWeekProvider.notifier).state = clamped;
   }
 
   int? _resolveHighlightedWeekday(AsyncValue<int> currentWeekAsync, int week) {
@@ -47,42 +62,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
       data: (currentWeek) =>
           currentWeek == week ? DateTime.now().weekday : null,
       orElse: () => null,
-    );
-  }
-
-  Widget _buildAnimatedGrid({
-    required int selectedWeek,
-    required List<Course> courses,
-    required int? highlightedWeekday,
-  }) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 280),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        final offset = Offset(_isForward ? 0.12 : -0.12, 0);
-        final slide = Tween<Offset>(
-          begin: offset,
-          end: Offset.zero,
-        ).animate(animation);
-
-        return ClipRect(
-          child: SlideTransition(
-            position: slide,
-            child: FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: ScheduleGrid(
-        key: ValueKey<int>(selectedWeek),
-        courses: courses,
-        highlightedWeekday: highlightedWeekday,
-        onSwipePrevious: () => _changeWeek(selectedWeek - 1),
-        onSwipeNext: () => _changeWeek(selectedWeek + 1),
-      ),
     );
   }
 
@@ -130,22 +109,41 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 top: MediaQuery.of(context).padding.top +
                     SchedulePage.appBarHeight,
               ),
-              child: scheduleAsync.when(
-                data: (courses) => _buildAnimatedGrid(
-                  selectedWeek: selectedWeek,
-                  courses: courses,
-                  highlightedWeekday: highlightedWeekday,
-                ),
-                loading: () => const ScheduleMessage(
-                  icon: Icons.hourglass_empty_rounded,
-                  title: '正在整理课表',
-                  message: '课程数据加载中',
-                ),
-                error: (error, stack) => ScheduleMessage(
-                  icon: Icons.error_outline_rounded,
-                  title: '课表加载失败',
-                  message: error.toString(),
-                ),
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: WeekSelector.maxWeek,
+                onPageChanged: (pageIndex) {
+                  final targetWeek = pageIndex + 1;
+                  if (ref.read(selectedWeekProvider) != targetWeek) {
+                    ref.read(selectedWeekProvider.notifier).state = targetWeek;
+                  }
+                },
+                itemBuilder: (context, index) {
+                  final week = index + 1;
+                  final weekCoursesAsync = ref.watch(weekScheduleProvider(week));
+                  final weekHighlighted =
+                      _resolveHighlightedWeekday(currentWeekAsync, week);
+
+                  return weekCoursesAsync.when(
+                    data: (courses) => ScheduleGrid(
+                      key: ValueKey<int>(week),
+                      courses: courses,
+                      highlightedWeekday: weekHighlighted,
+                      onSwipePrevious: () => _changeWeek(week - 1),
+                      onSwipeNext: () => _changeWeek(week + 1),
+                    ),
+                    loading: () => const ScheduleMessage(
+                      icon: Icons.hourglass_empty_rounded,
+                      title: '正在整理课表',
+                      message: '课程数据加载中',
+                    ),
+                    error: (error, stack) => ScheduleMessage(
+                      icon: Icons.error_outline_rounded,
+                      title: '课表加载失败',
+                      message: error.toString(),
+                    ),
+                  );
+                },
               ),
             ),
           ],
