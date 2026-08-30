@@ -7,12 +7,14 @@ import '../../domain/entities/course.dart';
 class CourseCard extends StatelessWidget {
   final Course course;
   final double height;
+  final int conflictCount;
   final VoidCallback? onTap;
 
   const CourseCard({
     super.key,
     required this.course,
     required this.height,
+    this.conflictCount = 0,
     this.onTap,
   });
 
@@ -44,10 +46,42 @@ class CourseCard extends StatelessWidget {
               ),
             ],
           ),
-          child: _CourseContent(
-            course: course,
-            textColor: textColor,
-            compact: height < 54,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _CourseContent(
+                course: course,
+                textColor: textColor,
+                compact: height < 54,
+              ),
+              if (conflictCount > 1)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade700,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 3,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '+$conflictCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

@@ -36,7 +36,9 @@ class LocalCourseFileImportDataSource implements CourseFileImportDataSource {
       final courses = switch (ext) {
         '.json' => _parseJSON(resolvedBytes),
         '.docx' => _parseDOCX(resolvedBytes),
-        _ => throw const FormatException('不支持的文件类型，仅支持 JSON 和 DOCX'),
+        '.xlsx' || '.xls' => _parseXLSX(resolvedBytes),
+        '.ics' => _parseICS(resolvedBytes),
+        _ => throw const FormatException('不支持的文件类型，支持 JSON、DOCX、XLSX、ICS'),
       };
 
       if (courses.isEmpty) {
@@ -96,6 +98,128 @@ class LocalCourseFileImportDataSource implements CourseFileImportDataSource {
     }
 
     throw const FormatException('DOCX 中未识别到可导入的课程表结构');
+  }
+
+  List<Course> _parseXLSX(List<int> bytes) {
+    // xlsx 实质为标准 zip 包，内含 xl/sharedStrings.xml 与 xl/worksheets/sheet1.xml
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      final sheetFile = archive.findFile('xl/worksheets/sheet1.xml') ??
+          archive.files.firstWhere((f) => f.name.startsWith('xl/worksheets/sheet'));
+      final sstFile = archive.findFile('xl/sharedStrings.xml');
+
+      List<String> sharedStrings = [];
+      if (sstFile != null) {
+        final sstDoc = XmlDocument.parse(utf8.decode(_toBytes(sstFile.content)));
+        sharedStrings = _findElements(sstDoc, 't').map((e) => e.innerText).toList();
+      }
+
+      final sheetDoc = XmlDocument.parse(utf8.decode(_toBytes(sheetFile.content)));
+      final rows = <List<String>>[];
+
+      for (final rowNode in _findElements(sheetDoc, 'row')) {
+        final rowValues = <String>[];
+        for (final cNode in _findElements(rowNode, 'c')) {
+          final type = cNode.getAttribute('t');
+          final vNode = cNode.findElements('v').firstOrNull;
+          if (vNode != null) {
+            final val = vNode.innerText.trim();
+            if (type == 's') {
+              final idx = int.tryParse(val);
+              if (idx != null && idx < sharedStrings.length) {
+                rowValues.add(sharedStrings[idx]);
+              } else {
+                rowValues.add(val);
+              }
+            } else {
+              rowValues.add(val);
+            }
+          } else {
+            rowValues.add('');
+          }
+        }
+        if (rowValues.any((cell) => cell.trim().isNotEmpty)) {
+          rows.add(rowValues);
+        }
+      }
+
+      final header = _detectHeader(rows);
+      if (header != null) {
+        final courses = <Course>[];
+        for (var i = header.rowIndex + 1; i < rows.length; i++) {
+          final course = _rowToCourse(rows[i], header.map, i);
+          if (course != null) {
+            courses.add(course);
+          }
+        }
+        if (courses.isNotEmpty) return courses;
+      }
+    } catch (_) {}
+
+    throw const FormatException('XLSX 中未识别到有效课程表结构');
+  }
+
+  List<Course> _parseICS(List<int> bytes) {
+    try {
+      final content = utf8.decode(bytes);
+      final lines = content.split(RegExp(r'\r?\n'));
+      final events = <Map<String, String>>[];
+      Map<String, String>? current;
+
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed == 'BEGIN:VEVENT') {
+          current = {};
+        } else if (trimmed == 'END:VEVENT') {
+          if (current != null) events.add(current);
+          current = null;
+        } else if (current != null) {
+          final colon = trimmed.indexOf(':');
+          if (colon > 0) {
+            final key = trimmed.substring(0, colon).split(';').first.toUpperCase();
+            final value = trimmed.substring(colon + 1);
+            current[key] = value;
+          }
+        }
+      }
+
+      final courses = <Course>[];
+      var idx = 1;
+      for (final event in events) {
+        final summary = event['SUMMARY'] ?? '';
+        if (summary.isEmpty) continue;
+        final location = event['LOCATION'] ?? '';
+        final description = event['DESCRIPTION'] ?? '';
+        final dtstart = event['DTSTART'] ?? '';
+
+        // 提取节次与时间
+        int weekday = 1;
+        int startSection = 1;
+        if (dtstart.length >= 8) {
+          final year = int.tryParse(dtstart.substring(0, 4)) ?? 2026;
+          final month = int.tryParse(dtstart.substring(4, 6)) ?? 1;
+          final day = int.tryParse(dtstart.substring(6, 8)) ?? 1;
+          final dt = DateTime(year, month, day);
+          weekday = dt.weekday;
+        }
+
+        courses.add(Course(
+          id: 'ics-${idx++}',
+          name: summary,
+          classroom: location,
+          teacher: description,
+          weekday: weekday,
+          startSection: startSection,
+          sectionCount: 2,
+          startWeek: 1,
+          endWeek: 20,
+        ));
+      }
+
+      if (courses.isNotEmpty) return courses;
+    } catch (_) {}
+
+    throw const FormatException('ICS 文件解析失败或未包含课程事件');
   }
 
   List<Course> _parseMatrixSchedule(XmlDocument document) {

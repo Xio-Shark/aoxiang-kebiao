@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/course.dart';
 import 'course_card.dart';
+import 'course_overlap_resolver.dart';
 import 'schedule_grid_metrics.dart';
 
 class WeekdayHeader extends StatelessWidget {
@@ -64,15 +65,41 @@ class TimeColumn extends StatelessWidget {
       child: Column(
         children: List.generate(ScheduleGridMetrics.sectionCount, (index) {
           final section = index + 1;
+          final time = index < ScheduleGridMetrics.sectionTimes.length
+              ? ScheduleGridMetrics.sectionTimes[index]
+              : null;
+
           return Expanded(
-            child: Center(
-              child: Text(
-                '$section',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$section',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
                 ),
-              ),
+                if (time != null) ...[
+                  Text(
+                    time['start']!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+                      fontSize: 8.5,
+                      height: 1.1,
+                    ),
+                  ),
+                  Text(
+                    time['end']!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+                      fontSize: 8,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ],
             ),
           );
         }),
@@ -116,11 +143,16 @@ class DayColumn extends StatelessWidget {
           builder: (context, constraints) {
             final slotHeight =
                 constraints.maxHeight / ScheduleGridMetrics.sectionCount;
+            final conflictMap = CourseOverlapResolver.resolveConflicts(courses);
 
+            // 过滤已被重叠覆盖的次要课程只展示在顶层或按层叠偏移
             return Stack(
               children: [
                 const _SectionDividers(),
                 ...courses.map((course) {
+                  final overlapping = conflictMap[course.id] ?? [course];
+                  final conflictCount = overlapping.length;
+                  
                   final top = (course.startSection - 1) * slotHeight + 2;
                   final height = (course.sectionCount * slotHeight - 4)
                       .clamp(
@@ -137,6 +169,7 @@ class DayColumn extends StatelessWidget {
                     child: CourseCard(
                       course: course,
                       height: height,
+                      conflictCount: conflictCount,
                       onTap: () => onCourseTap(course),
                     ),
                   );

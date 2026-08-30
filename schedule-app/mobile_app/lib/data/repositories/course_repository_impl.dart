@@ -46,12 +46,49 @@ class CourseRepositoryImpl implements CourseRepository {
 
   @override
   Future<Result<List<Course>>> getCoursesByWeek(int week) async {
+    // 优先尝试读取周快照缓存实现秒开
+    final snapshotResult = await _localDataSource.getWeekSnapshot(week);
+    final snapshot = snapshotResult.when<List<CourseModel>?>(
+      success: (data) => data,
+      failure: (_) => null,
+    );
+    if (snapshot != null && snapshot.isNotEmpty) {
+      // 异步在微任务中刷新校验
+      _refreshWeekSnapshotInBackground(week);
+      final courses = snapshot.map((e) => e.toEntity()).toList()
+        ..sort(_compareCoursePosition);
+      return Result.success(courses);
+    }
+
     final result = await getAllCourses();
     return result.mapSuccess((courses) {
-      return courses
+      final weekCourses = courses
           .where((course) => course.isVisibleInWeek(week))
           .toList()
         ..sort(_compareCoursePosition);
+      
+      // 保存至快照
+      _localDataSource.saveWeekSnapshot(
+        week,
+        weekCourses.map(CourseModel.fromEntity).toList(),
+      );
+      return weekCourses;
+    });
+  }
+
+  void _refreshWeekSnapshotInBackground(int week) {
+    Future.microtask(() async {
+      final all = await getAllCourses();
+      all.mapSuccess((courses) {
+        final weekCourses = courses
+            .where((course) => course.isVisibleInWeek(week))
+            .toList()
+          ..sort(_compareCoursePosition);
+        _localDataSource.saveWeekSnapshot(
+          week,
+          weekCourses.map(CourseModel.fromEntity).toList(),
+        );
+      });
     });
   }
 

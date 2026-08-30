@@ -22,7 +22,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['json', 'docx'],
+      allowedExtensions: const ['json', 'docx', 'xlsx', 'xls', 'ics'],
       withData: true,
     );
 
@@ -34,6 +34,82 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     setState(() {
       _selectedFile = file;
     });
+  }
+
+  Future<void> _importFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (text.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('剪贴板中未发现文本内容')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isImporting = true;
+    });
+
+    final parseResult = await ref
+        .read(courseFileImportDataSourceProvider)
+        .parseCourses(
+          fileName: 'clipboard.json',
+          bytes: utf8.encode(text),
+        );
+
+    final courses = parseResult.when<List<Course>?>(
+      success: (data) => data,
+      failure: (failure) {
+        // 尝试按通用文本行简单解析
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('剪贴板内容识别失败: ${failure.message}')),
+          );
+        }
+        return null;
+      },
+    );
+
+    if (courses == null || !mounted) {
+      setState(() {
+        _isImporting = false;
+      });
+      return;
+    }
+
+    final importResult = await ref.read(importScheduleUseCaseProvider).execute(
+          courses,
+          replaceExisting: _replaceExisting,
+        );
+
+    importResult.when(
+      success: (_) {
+        final targetWeek = _resolveTargetWeek(courses);
+        ref.read(selectedWeekProvider.notifier).state = targetWeek;
+        ref.invalidate(scheduleProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('剪贴板导入成功，共 ${courses.length} 门课程')),
+          );
+          Navigator.of(context).pop();
+        }
+      },
+      failure: (failure) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message)),
+          );
+        }
+      },
+    );
+
+    if (mounted) {
+      setState(() {
+        _isImporting = false;
+      });
+    }
   }
 
   Future<void> _startImport() async {
@@ -135,10 +211,20 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.insert_drive_file_outlined),
-              title: const Text('选择文件'),
-              subtitle: Text(_selectedFile?.name ?? '支持 .json / .docx'),
+              title: const Text('选择本地文件'),
+              subtitle: Text(_selectedFile?.name ?? '支持 .docx / .xlsx / .ics / .json'),
               trailing: const Icon(Icons.folder_open),
               onTap: _pickFile,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.content_paste_rounded),
+              title: const Text('从剪贴板嗅探导入'),
+              subtitle: const Text('自动识别复制的教务课表文本或口令'),
+              trailing: const Icon(Icons.auto_awesome),
+              onTap: _importFromClipboard,
             ),
           ),
           const SizedBox(height: 12),

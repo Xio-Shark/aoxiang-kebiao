@@ -247,17 +247,22 @@ final selectedWeekProvider = StateProvider<int>((ref) {
   );
 });
 
-/// 课程列表 Provider（当前选中周）
-final scheduleProvider = FutureProvider<List<Course>>((ref) async {
-  final selectedWeek = ref.watch(selectedWeekProvider);
+/// 课程列表 Provider（指定周，支持 PageView 多周顺畅预加载与缓存）
+final weekScheduleProvider =
+    FutureProvider.family<List<Course>, int>((ref, week) async {
   final useCase = ref.watch(getScheduleUseCaseProvider);
-
-  final result = await useCase.getByWeek(selectedWeek);
+  final result = await useCase.getByWeek(week);
 
   return result.when(
     success: (courses) => courses,
     failure: (failure) => throw StateError(failure.message),
   );
+});
+
+/// 课程列表 Provider（当前选中周）
+final scheduleProvider = FutureProvider<List<Course>>((ref) async {
+  final selectedWeek = ref.watch(selectedWeekProvider);
+  return ref.watch(weekScheduleProvider(selectedWeek).future);
 });
 
 /// 学期开始日期 Provider

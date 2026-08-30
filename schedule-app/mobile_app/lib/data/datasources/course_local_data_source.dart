@@ -21,6 +21,10 @@ abstract interface class CourseLocalDataSource {
   Future<Result<void>> saveCampus(String campus);
 
   Future<Result<String>> getCampus();
+
+  Future<Result<void>> saveWeekSnapshot(int week, List<CourseModel> courses);
+
+  Future<Result<List<CourseModel>?>> getWeekSnapshot(int week);
 }
 
 /// SharedPreferences本地数据源实现
@@ -151,6 +155,51 @@ class SharedPrefsDataSource implements CourseLocalDataSource {
       return Result.failure(
         Failure.storage(
           message: '读取校区失败: $e',
+        ),
+      );
+    }
+  }
+
+  static final Map<int, List<CourseModel>> _memoryWeekCache = {};
+
+  @override
+  Future<Result<void>> saveWeekSnapshot(int week, List<CourseModel> courses) async {
+    try {
+      _memoryWeekCache[week] = courses;
+      final key = 'snapshot_week_$week';
+      final jsonList = courses.map((e) => e.toJson()).toList();
+      await _prefs.setString(key, jsonEncode(jsonList));
+      return const Result.success(null);
+    } catch (e) {
+      return Result.failure(
+        Failure.storage(
+          message: '保存周快照失败: $e',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Result<List<CourseModel>?>> getWeekSnapshot(int week) async {
+    try {
+      if (_memoryWeekCache.containsKey(week)) {
+        return Result.success(_memoryWeekCache[week]);
+      }
+      final key = 'snapshot_week_$week';
+      final jsonString = _prefs.getString(key);
+      if (jsonString == null || jsonString.isEmpty) {
+        return const Result.success(null);
+      }
+      final List<dynamic> decoded = jsonDecode(jsonString) as List<dynamic>;
+      final courses = decoded
+          .map((e) => CourseModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+      _memoryWeekCache[week] = courses;
+      return Result.success(courses);
+    } catch (e) {
+      return Result.failure(
+        Failure.parse(
+          message: '读取周快照失败: $e',
         ),
       );
     }

@@ -83,11 +83,21 @@ class ScheduleGrid extends StatelessWidget {
   }
 
   void _showCourseDetail(BuildContext context, Course course) {
+    final dayCourses = courses.where((c) => c.weekday == course.weekday).toList();
+    final overlapping = dayCourses.where((other) {
+      final start = course.startSection > other.startSection ? course.startSection : other.startSection;
+      final end = course.endSection < other.endSection ? course.endSection : other.endSection;
+      return start <= end;
+    }).toList();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       showDragHandle: true,
-      builder: (context) => CourseDetailSheet(course: course),
+      builder: (context) => CourseDetailSheet(
+        course: course,
+        overlappingCourses: overlapping,
+      ),
     );
   }
 }
