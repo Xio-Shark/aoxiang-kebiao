@@ -44,3 +44,11 @@ jobs:
           name: aoxiang-kebiao-ios-ipa
           path: aoxiang-kebiao-ios-unsigned.ipa
           if-no-files-found: error
+
+      - name: Upload IPA to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: aoxiang-kebiao-ios-unsigned.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
