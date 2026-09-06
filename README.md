@@ -26,11 +26,11 @@
 
 ### APK 校验
 
-- 文件名：`aoxiang-kebiao-v1.0.2.apk`
+- 文件名：`aoxiang-kebiao-v1.0.4.apk`
 - SHA256：
 
 ```text
-ED823B2B3F382EC1C60E5444B8644348CDC16E96AB0457E62B48BAD9A64395DF
+4ce40e825f5e3fa05cfb6f8215abaa0be49c4de11ad302ace7b8149e4d43839f
 ```
 
 ## 3. 安装与使用
@@ -40,7 +40,7 @@ ED823B2B3F382EC1C60E5444B8644348CDC16E96AB0457E62B48BAD9A64395DF
 **Android 安装**：
 
 ```bash
-adb install -r apk_output/aoxiang-kebiao-v1.0.2.apk
+adb install -r aoxiang-kebiao-v1.0.4.apk
 ```
 
 或在手机本地直接安装 APK（允许未知来源安装）。
