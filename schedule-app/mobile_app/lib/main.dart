@@ -57,7 +57,7 @@ ThemeData _buildTheme(Brightness brightness, Color seedColor) {
       foregroundColor: colorScheme.onSurface,
       backgroundColor: Colors.transparent,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 0,
       color: colorScheme.surfaceContainerLow,
       margin: EdgeInsets.zero,
