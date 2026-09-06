@@ -1,161 +1,105 @@
 # 翱翔课表（aoxiang-kebiao）
 
-本仓库包含翱翔课表的发布包与完整开发源码。
+本项目为高校学子打造的现代化课程表与学期日程管理应用，支持翱翔教务系统网页一键嗅探导入及多种格式课表文件解析。采用 Flutter 跨平台框架构建，纯本地离线优先，全方位保护用户隐私。
 
 ## 1. 仓库总览
 
-- `apk_output/aoxiang-kebiao-v1.0.2.apk`：最终发布 APK
-- `schedule-app/`：开发源码
-  - `mobile_app/`：Flutter Android/iOS 客户端
-  - `parsing_service/`：Go 课表解析服务
+- `schedule-app/mobile_app/`：Flutter 移动端核心应用源码（Clean Architecture 架构）
+- `.github/workflows/`：GitHub Actions 自动化多端构建流水线
 - `LICENSE`：MIT 开源许可证
 
 ## 2. 应用发布信息
 
-- 应用名称：aoxiang 课表
-- 包名：`com.example.aoxiang_schedule`
-- 版本：`1.0.4`
-- 最低系统：Android 7.0（API 24） / iOS 12.0
-- 目标系统：Android 16（API 36）
+- **应用名称**：aoxiang 课表
+- **包名**：`com.example.aoxiang_schedule`
+- **当前版本**：`1.0.4`
+- **支持系统**：Android 7.0+（API 24+） / iOS 12.0+
+- **发布页面**：[GitHub Releases v1.0.4](https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.4)
+- **最新 APK 下载**：[aoxiang-kebiao-v1.0.4.apk](https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.4/aoxiang-kebiao-v1.0.4.apk)
 
-### Release
-
-- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.4`
-- Android APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.4/aoxiang-kebiao-v1.0.4.apk`
-- iOS IPA：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.4/aoxiang-kebiao-v1.0.4-ios-unsigned.ipa`
-
-### APK 校验
-
-- 文件名：`aoxiang-kebiao-v1.0.4.apk`
-- SHA256：
+### APK 校验信息
 
 ```text
-4ce40e825f5e3fa05cfb6f8215abaa0be49c4de11ad302ace7b8149e4d43839f
+文件名: aoxiang-kebiao-v1.0.4.apk
+SHA256: 4ce40e825f5e3fa05cfb6f8215abaa0be49c4de11ad302ace7b8149e4d43839f
 ```
 
 ## 3. 安装与使用
 
-### 3.1 安装
+### 3.1 安装方式
 
 **Android 安装**：
-
-```bash
-adb install -r aoxiang-kebiao-v1.0.4.apk
-```
-
-或在手机本地直接安装 APK（允许未知来源安装）。
-
-**iOS 安装（支持未签名 IPA 侧载与巨魔商店）**：
-
-- 本仓库已配置 GitHub Actions 自动构建未签名 iOS IPA。
-- 巨魔商店（TrollStore）用户：直接下载 Release 中的 `aoxiang-kebiao-ios-unsigned.ipa` 即可安装。
-- 普通 iOS 用户：可通过 AltStore / SideStore / 爱思助手等工具导入 IPA 进行 Apple ID 自签名安装。
+- 下载 Release 中的 `.apk` 文件在手机本地直接安装（允许安装未知来源应用）。
+- 或使用 ADB 调试安装：
+  ```bash
+  adb install -r aoxiang-kebiao-v1.0.4.apk
+  ```
 
 ### 3.2 导入课表
 
-**方式一：教务系统直接导入（推荐）**
+**方式一：翱翔教务系统直接导入（推荐）**
+1. 打开应用 -> 点击顶部栏「教务导入」或从「导入课表」进入。
+2. 在内嵌浏览器中登录教务系统/统一身份认证，进入个人学期课表页面。
+3. 点击底部悬浮按钮「一键导入当前页课表」，应用将自动嗅探解析课程、时间与地点并保存。
 
-1. 打开应用 -> 点击顶部导航栏「教务导入」或进入「导入课表 -> 教务系统直接导入」
-2. 在内嵌浏览器中登录翱翔教务 / 统一身份认证，导航至课表页面
-3. 点击底部悬浮按钮「一键导入当前页课表」，系统将自动嗅探提取课表并入库
+**方式二：本地文件导入**
+1. 打开应用 -> 进入「导入课程」->「选择本地文件」。
+2. 选择本地 `.docx`、`.xlsx`、`.ics` 或 `.json` 格式课表文件，系统将利用本地解析器自动解析入库。
 
-**方式二：文件导入**
-
-1. 打开应用 -> `导入课程` -> `选择本地文件`
-2. 在系统文件管理器选择 `.docx`、`.xlsx`、`.ics` 或 `.json` 文件完成导入
-
-## 4. 开发源码说明（schedule-app）
-
-### 4.1 目录结构
+## 4. 核心工程架构
 
 ```text
 schedule-app/
-├─ mobile_app/                # Flutter 客户端
-│  ├─ lib/                    # 业务代码
-│  ├─ android/                # Android 工程
-│  ├─ pubspec.yaml            # Flutter 依赖
-│  └─ BUILD.md                # 移动端构建说明
-├─ parsing_service/           # Go 解析服务
-│  ├─ cmd/server/             # 服务入口
-│  ├─ internal/               # 业务实现
-│  ├─ go.mod                  # Go 依赖声明
-│  └─ Dockerfile              # 容器构建文件
-├─ build_apk.bat              # Windows 一键构建脚本
-├─ build_apk.ps1              # PowerShell 构建脚本
-├─ README.md                  # 源码目录说明
-└─ PROJECT_README.md          # 项目详细说明
+└─ mobile_app/                    # 移动端源码
+   ├─ lib/
+   │  ├─ application/             # 状态管理与应用用例 (Riverpod)
+   │  ├─ core/                    # 常量、主题调色盘、Result/Failure 抽象
+   │  ├─ data/                    # 本地持久化与多源文件/教务解析器
+   │  ├─ domain/                  # 核心领域实体 (Course, WeekPattern) 与仓储契约
+   │  └─ presentation/            # 界面展示 (日程网格/课程详情/导入/设置)
+   ├─ android/                    # Android 原生工程
+   ├─ ios/                        # iOS 原生工程
+   ├─ test/                       # 单元与解析测试用例
+   ├─ pubspec.yaml                # 依赖管理
+   └─ BUILD.md                    # 详细构建指南
 ```
 
-### 4.2 命名约定
+## 5. 本地开发与构建
 
-- Flutter 应用标识：`aoxiang_schedule`
-- Android 包名：`com.example.aoxiang_schedule`
-- Go 模块：`github.com/aoxiang/schedule-parser`
+### 运行环境
+- Flutter 3.x+ (Dart 3.x+)
+- JDK 17
+- Android SDK (API 34+)
 
-## 5. 技术架构
-
-### 5.1 客户端（Flutter）
-
-分层结构：
-
-- `core`：常量、错误模型、通用结果
-- `domain`：实体与仓储接口
-- `data`：数据源与仓储实现
-- `application`：用例与状态注入
-- `presentation`：页面与组件
-
-### 5.2 解析服务（Go）
-
-- `cmd/server`：HTTP 入口
-- `internal/parser`：文档解析
-- `internal/recognizer`：规则识别
-- `internal/api`：接口处理
-- `internal/model`：领域模型
-
-## 6. 本地开发与联调
-
-### 6.1 Flutter 客户端
+### 运行与测试
 
 ```bash
 cd schedule-app/mobile_app
 flutter pub get
 flutter run
+
+# 运行自动化测试
+flutter test
 ```
 
-### 6.2 Go 服务端
+### 构建 APK
 
 ```bash
-cd schedule-app/parsing_service
-go mod tidy
-go run cmd/server/main.go
+cd schedule-app/mobile_app
+flutter build apk --release
 ```
 
-### 6.3 Windows 打包 APK
+## 6. 功能特性 (v1.0.4)
 
-```bat
-cd schedule-app
-build_apk.bat
-```
+- **课表日历融合网格**：按星期与节次排列，自动感知当前公历日期与月份，高亮今日，支持一键「回到本周」。
+- **智能重叠课程排版**：多门课程时段冲突时支持横向智能并列排版，杜绝卡片遮挡与信息遗漏。
+- **流畅渲染架构**：剔除高开销背景滤镜，采用硬件加速渐变卡片设计，滑动与切换极其流畅。
+- **全生命周期课程管理**：支持可视化新增、编辑、删除课程，随时随地灵活调课。
+- **学期周次自定义**：支持精准设置开学首周日期，亦可一键「设本周为第1周」。
+- **多源本地化导入**：教务网页一键嗅探导入、DOCX/XLSX/ICS/JSON 纯本地解析，数据不经任何第三方服务器。
+- **离线沙盒存储**：离线优先，全量数据存放于设备本地沙盒，零隐私泄露风险。
+- **云端自动化构建**：GitHub Actions 自动构建，支持推送 tag 自动触发多架构 APK 编译与 Release 发布。
 
-## 7. 功能特性 (v1.0.4)
+## 7. 许可证
 
-- **课表日历融合网格**：按星期/节次排布，顶栏实时感知真实月份与日期，高亮今日「Today」，支持一键「回到本周」
-- **智能重叠课程排版**：多门课程时段冲突时支持横向并列排版，杜绝完全遮挡
-- **渲染性能提升**：剔除高开销 BackdropFilter，采用硬件加速渐变卡片设计，滑动顺滑流畅
-- **全生命周期课程管理**：支持手动新增、编辑、删除课程，无需完全依赖解析脚本
-- **学期与周次设置**：可自由调整开学第一周日期，或快捷「设本周为第1周」
-- **多源数据导入**：支持翱翔教务系统直接导入嗅探、`.docx` / `.xlsx` / `.ics` / `.json` 文件本地导入
-- **本地持久化存储**：离线优先，数据保存在手机本地沙盒
-- **云端多端自动化构建**：GitHub Actions 自动构建发布 Android APK 与 iOS IPA
-
-## 8. 维护约定
-
-- 变更发布包时同步更新：Release 说明、APK 链接、SHA256
-- 变更架构或流程时同步更新：
-  - 根目录 `README.md`
-  - `schedule-app/README.md`
-  - `schedule-app/PROJECT_README.md`
-
-## 9. 许可证
-
-本项目遵循 MIT License，见 [LICENSE](./LICENSE)。
+本项目遵循 MIT 开源许可证，详见 [LICENSE](./LICENSE)。
