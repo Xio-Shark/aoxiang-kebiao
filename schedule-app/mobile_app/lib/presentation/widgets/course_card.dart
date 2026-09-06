@@ -1,6 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/constants/course_color_palette.dart';
 import '../../domain/entities/course.dart';
@@ -28,45 +27,43 @@ class CourseCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              height: height,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5.5),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    baseColor.withValues(alpha: 0.88),
-                    accentColor.withValues(alpha: 0.82),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.40),
-                  width: 0.8,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: baseColor.withValues(alpha: 0.22),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap?.call();
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: height,
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4.5),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                baseColor.withValues(alpha: 0.93),
+                accentColor.withValues(alpha: 0.86),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.45),
+              width: 0.7,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: baseColor.withValues(alpha: 0.28),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
               ),
-              child: Stack(
+            ],
+          ),
+          child: Stack(
             clipBehavior: Clip.none,
             children: [
               _CourseContent(
                 course: course,
                 textColor: textColor,
-                compact: height < 54,
+                height: height,
               ),
               if (conflictCount > 1)
                 Positioned(
@@ -75,8 +72,8 @@ class CourseCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade700,
-                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.amber.shade800,
+                      borderRadius: BorderRadius.circular(5),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.25),
@@ -99,54 +96,87 @@ class CourseCard extends StatelessWidget {
           ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }
 
 class _CourseContent extends StatelessWidget {
   final Course course;
   final Color textColor;
-  final bool compact;
+  final double height;
 
   const _CourseContent({
     required this.course,
     required this.textColor,
-    required this.compact,
+    required this.height,
   });
 
   @override
   Widget build(BuildContext context) {
-    final secondary = textColor.withValues(alpha: 0.78);
+    final secondary = textColor.withValues(alpha: 0.85);
+    final isCompact = height < 52;
+    final isSpacious = height >= 88;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           course.name,
           style: TextStyle(
             color: textColor,
-            fontSize: compact ? 10.5 : 11.5,
+            fontSize: isCompact ? 10 : 11,
             fontWeight: FontWeight.w800,
-            height: 1.08,
-            letterSpacing: 0,
+            height: 1.15,
+            letterSpacing: -0.1,
           ),
-          maxLines: compact ? 1 : 2,
+          maxLines: isCompact ? 1 : 2,
           overflow: TextOverflow.ellipsis,
         ),
-        if (!compact) ...[
+        if (!isCompact && course.classroom.isNotEmpty) ...[
           const SizedBox(height: 3),
-          if (course.classroom.isNotEmpty)
-            _MetaLine(
-              icon: Icons.location_on_outlined,
-              value: course.classroom,
-              color: secondary,
-            ),
-          _MetaLine(
-            icon: Icons.calendar_today_outlined,
-            value: course.weekDisplayText,
-            color: secondary,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.place_rounded, size: 9.5, color: secondary),
+              const SizedBox(width: 1.5),
+              Expanded(
+                child: Text(
+                  course.classroom,
+                  style: TextStyle(
+                    color: secondary,
+                    fontSize: 9.2,
+                    fontWeight: FontWeight.w600,
+                    height: 1.0,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (isSpacious && course.teacher.isNotEmpty) ...[
+          const SizedBox(height: 2.5),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.person_rounded, size: 9.5, color: secondary),
+              const SizedBox(width: 1.5),
+              Expanded(
+                child: Text(
+                  course.teacher,
+                  style: TextStyle(
+                    color: secondary,
+                    fontSize: 8.8,
+                    fontWeight: FontWeight.w500,
+                    height: 1.0,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ],
       ],
@@ -154,46 +184,7 @@ class _CourseContent extends StatelessWidget {
   }
 }
 
-class _MetaLine extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final Color color;
-
-  const _MetaLine({
-    required this.icon,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        children: [
-          Icon(icon, size: 10, color: color),
-          const SizedBox(width: 2),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                height: 1,
-                letterSpacing: 0,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 Color _readableTextColor(Color background) {
   final brightness = ThemeData.estimateBrightnessForColor(background);
-  return brightness == Brightness.dark ? Colors.white : Colors.black;
+  return brightness == Brightness.dark ? Colors.white : Colors.black87;
 }

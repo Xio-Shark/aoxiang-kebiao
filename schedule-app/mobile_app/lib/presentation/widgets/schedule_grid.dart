@@ -6,6 +6,9 @@ import 'schedule_grid_metrics.dart';
 import 'schedule_grid_parts.dart';
 
 class ScheduleGrid extends StatelessWidget {
+  final int week;
+  final List<DateTime> weekDates;
+  final String monthText;
   final List<Course> courses;
   final int? highlightedWeekday;
   final VoidCallback onSwipePrevious;
@@ -13,6 +16,9 @@ class ScheduleGrid extends StatelessWidget {
 
   const ScheduleGrid({
     super.key,
+    required this.week,
+    required this.weekDates,
+    required this.monthText,
     required this.courses,
     required this.highlightedWeekday,
     required this.onSwipePrevious,
@@ -29,18 +35,20 @@ class ScheduleGrid extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           ScheduleGridMetrics.horizontalPadding,
-          4,
+          2,
           ScheduleGridMetrics.horizontalPadding,
-          10,
+          8,
         ),
         child: Column(
           children: [
             WeekdayHeader(
               highlightedWeekday: highlightedWeekday,
+              weekDates: weekDates,
+              monthText: monthText,
               onSwipePrevious: onSwipePrevious,
               onSwipeNext: onSwipeNext,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Expanded(
               child: Row(
                 children: [
@@ -50,9 +58,11 @@ class ScheduleGrid extends StatelessWidget {
                     child: Row(
                       children: List.generate(7, (index) {
                         final weekday = index + 1;
+                        final isToday = weekday == highlightedWeekday;
                         return Expanded(
                           child: DayColumn(
-                            isHighlighted: weekday == highlightedWeekday,
+                            isHighlighted: isToday,
+                            isToday: isToday,
                             courses: groupedCourses[weekday] ?? const [],
                             onCourseTap: (course) {
                               _showCourseDetail(context, course);

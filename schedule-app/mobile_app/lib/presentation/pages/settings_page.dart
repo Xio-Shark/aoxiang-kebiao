@@ -104,9 +104,89 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return targetPath;
   }
 
+  Future<void> _pickTermStartDate() async {
+    final current = ref.read(termStartDateProvider);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      helpText: '选择学期第一周周一所在日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+
+    if (picked != null && mounted) {
+      await ref.read(termStartDateProvider.notifier).setDate(picked);
+      ref.invalidate(scheduleProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已设置第一周为: ${picked.year}年${picked.month}月${picked.day}日 (当前为第 ${ref.read(currentWeekProvider)} 周)'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _setThisWeekAsFirst() async {
+    await ref.read(termStartDateProvider.notifier).setThisWeekAsFirstWeek();
+    ref.invalidate(scheduleProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已将本周设定为第 1 周')),
+      );
+    }
+  }
+
+  Future<void> _clearAllScheduleData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空所有课表数据'),
+        content: const Text('确定要清空本地保存的所有课程数据吗？清空后将无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final result = await ref.read(settingsUseCaseProvider).clearAll();
+      result.when(
+        success: (_) {
+          ref.invalidate(scheduleProvider);
+          for (var w = 1; w <= 25; w++) {
+            ref.invalidate(weekScheduleProvider(w));
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('所有课表数据已清空')),
+            );
+          }
+        },
+        failure: (f) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('清空失败: ${f.message}')),
+            );
+          }
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final backgroundImagePath = ref.watch(backgroundImagePathProvider);
+    final termStart = ref.watch(termStartDateProvider);
+    final currentWeek = ref.watch(currentWeekProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -115,22 +195,90 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 学期与周次设置
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.file_download_outlined),
-              title: const Text('导入课表'),
-              subtitle: const Text('教务系统直接导入 / 文件解析 / 剪贴板嗅探'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ImportPage(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '学期与当前日期',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '当前第 $currentWeek 周',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
+                  const SizedBox(height: 10),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_month_outlined),
+                    title: const Text('开学第一周周一'),
+                    subtitle: Text('${termStart.year}年${termStart.month}月${termStart.day}日'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _pickTermStartDate,
+                  ),
+                  const Divider(height: 1),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _setThisWeekAsFirst,
+                      icon: const Icon(Icons.replay_rounded, size: 16),
+                      label: const Text('设本周为第 1 周'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
+          // 课表数据管理
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.file_download_outlined),
+                  title: const Text('导入课表'),
+                  subtitle: const Text('教务系统直接导入 / 文件解析 / 剪贴板嗅探'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ImportPage(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                  title: const Text('清空所有课表数据', style: TextStyle(color: Colors.red)),
+                  subtitle: const Text('重置并清空所有已导入与自定义课程'),
+                  onTap: _clearAllScheduleData,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 背景设置
           Card(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -138,7 +286,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '背景图片',
+                    '课表背景图片',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

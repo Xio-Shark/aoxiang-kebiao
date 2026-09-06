@@ -7,32 +7,72 @@ import 'schedule_grid_metrics.dart';
 
 class WeekdayHeader extends StatelessWidget {
   final int? highlightedWeekday;
+  final List<DateTime> weekDates;
+  final String monthText;
   final VoidCallback onSwipePrevious;
   final VoidCallback onSwipeNext;
 
   const WeekdayHeader({
     super.key,
     required this.highlightedWeekday,
+    required this.weekDates,
+    required this.monthText,
     required this.onSwipePrevious,
     required this.onSwipeNext,
   });
 
   @override
   Widget build(BuildContext context) {
-    const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final theme = Theme.of(context);
 
     return GestureDetector(
       onHorizontalDragEnd: _handleDragEnd,
       child: SizedBox(
-        height: 42,
+        height: 48,
         child: Row(
           children: [
-            const SizedBox(width: ScheduleGridMetrics.timeColumnWidth + 4),
-            ...List.generate(weekdays.length, (index) {
+            // 左上角月份框（对齐下方时间轴）
+            Container(
+              width: ScheduleGridMetrics.timeColumnWidth,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                monthText,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10.5,
+                  height: 1.1,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            // 7 天星期与具体日期列
+            ...List.generate(7, (index) {
               final weekday = index + 1;
+              final date = index < weekDates.length ? weekDates[index] : null;
+              final isToday = date != null &&
+                  date.year == today.year &&
+                  date.month == today.month &&
+                  date.day == today.day;
+
               return _WeekdayCell(
-                label: weekdays[index],
-                isHighlighted: weekday == highlightedWeekday,
+                label: weekdayLabels[index],
+                date: date,
+                isToday: isToday,
+                isHighlighted: isToday || weekday == highlightedWeekday,
               );
             }),
           ],
@@ -50,6 +90,95 @@ class WeekdayHeader extends StatelessWidget {
     if (velocity >= 80) {
       onSwipePrevious();
     }
+  }
+}
+
+class _WeekdayCell extends StatelessWidget {
+  final String label;
+  final DateTime? date;
+  final bool isToday;
+  final bool isHighlighted;
+
+  const _WeekdayCell({
+    required this.label,
+    required this.date,
+    required this.isToday,
+    required this.isHighlighted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dayStr = date != null ? '${date!.day}' : '';
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: ScheduleGridMetrics.dayGap,
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 44,
+          decoration: BoxDecoration(
+            color: isToday
+                ? theme.colorScheme.primary
+                : (isHighlighted
+                    ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                    : theme.colorScheme.surface.withValues(alpha: 0.52)),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: isToday
+                  ? theme.colorScheme.primary
+                  : (isHighlighted
+                      ? theme.colorScheme.primary.withValues(alpha: 0.38)
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.35)),
+              width: isToday ? 1.2 : 0.8,
+            ),
+            boxShadow: isToday
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.32),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '周$label',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isToday
+                      ? theme.colorScheme.onPrimary
+                      : (isHighlighted
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant),
+                  fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 10,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                dayStr.isNotEmpty ? dayStr : '--',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: isToday
+                      ? theme.colorScheme.onPrimary
+                      : (isHighlighted
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface),
+                  fontWeight: isToday ? FontWeight.w900 : FontWeight.w700,
+                  fontSize: 12,
+                  height: 1.0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -82,7 +211,7 @@ class TimeColumn extends StatelessWidget {
                     height: 18,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
                     child: Text(
@@ -90,7 +219,7 @@ class TimeColumn extends StatelessWidget {
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w800,
-                        fontSize: 10.5,
+                        fontSize: 10,
                         height: 1,
                       ),
                     ),
@@ -127,12 +256,14 @@ class TimeColumn extends StatelessWidget {
 
 class DayColumn extends StatelessWidget {
   final bool isHighlighted;
+  final bool isToday;
   final List<Course> courses;
   final ValueChanged<Course> onCourseTap;
 
   const DayColumn({
     super.key,
     required this.isHighlighted,
+    this.isToday = false,
     required this.courses,
     required this.onCourseTap,
   });
@@ -140,9 +271,15 @@ class DayColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final backgroundColor = isHighlighted
-        ? theme.colorScheme.primary.withValues(alpha: 0.07)
-        : theme.colorScheme.surface.withValues(alpha: 0.36);
+    final backgroundColor = isToday
+        ? theme.colorScheme.primary.withValues(alpha: 0.08)
+        : (isHighlighted
+            ? theme.colorScheme.primary.withValues(alpha: 0.04)
+            : theme.colorScheme.surface.withValues(alpha: 0.32));
+
+    final borderColor = isToday
+        ? theme.colorScheme.primary.withValues(alpha: 0.45)
+        : theme.colorScheme.outlineVariant.withValues(alpha: 0.35);
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -153,7 +290,8 @@ class DayColumn extends StatelessWidget {
           color: backgroundColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.42),
+            color: borderColor,
+            width: isToday ? 1.0 : 0.7,
           ),
         ),
         child: LayoutBuilder(
@@ -161,8 +299,8 @@ class DayColumn extends StatelessWidget {
             final slotHeight =
                 constraints.maxHeight / ScheduleGridMetrics.sectionCount;
             final conflictMap = CourseOverlapResolver.resolveConflicts(courses);
+            final colWidth = constraints.maxWidth;
 
-            // 过滤已被重叠覆盖的次要课程只展示在顶层或按层叠偏移
             return Stack(
               children: [
                 const _SectionDividers(),
@@ -178,10 +316,22 @@ class DayColumn extends StatelessWidget {
                       )
                       .toDouble();
 
+                  // 多课程重叠并排显示计算（避免完全堆叠盖死）
+                  double left = 2.0;
+                  double right = 2.0;
+                  if (conflictCount > 1) {
+                    final sorted = [...overlapping]..sort((a, b) => a.id.compareTo(b.id));
+                    final idx = sorted.indexWhere((c) => c.id == course.id);
+                    final subWidth = (colWidth - 4) / conflictCount;
+                    left = 2.0 + idx * subWidth;
+                    right = colWidth - (left + subWidth);
+                    if (right < 0) right = 0;
+                  }
+
                   return Positioned(
                     top: top,
-                    left: 3,
-                    right: 3,
+                    left: left,
+                    right: right,
                     height: height,
                     child: CourseCard(
                       course: course,
@@ -200,56 +350,6 @@ class DayColumn extends StatelessWidget {
   }
 }
 
-class _WeekdayCell extends StatelessWidget {
-  final String label;
-  final bool isHighlighted;
-
-  const _WeekdayCell({
-    required this.label,
-    required this.isHighlighted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: ScheduleGridMetrics.dayGap,
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: isHighlighted
-                ? theme.colorScheme.primary.withValues(alpha: 0.14)
-                : theme.colorScheme.surface.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _borderColor(theme)),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: isHighlighted
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-                fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _borderColor(ThemeData theme) {
-    if (isHighlighted) {
-      return theme.colorScheme.primary.withValues(alpha: 0.28);
-    }
-    return theme.colorScheme.outlineVariant.withValues(alpha: 0.42);
-  }
-}
-
 class _SectionDividers extends StatelessWidget {
   const _SectionDividers();
 
@@ -264,7 +364,7 @@ class _SectionDividers extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.22),
                   width: 0.5,
                 ),
               ),

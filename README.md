@@ -14,15 +14,15 @@
 
 - 应用名称：aoxiang 课表
 - 包名：`com.example.aoxiang_schedule`
-- 版本：`1.0.3`
+- 版本：`1.0.4`
 - 最低系统：Android 7.0（API 24） / iOS 12.0
 - 目标系统：Android 16（API 36）
 
 ### Release
 
-- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.3`
-- Android APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.3/aoxiang-kebiao-v1.0.2.apk`
-- iOS IPA：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.3/aoxiang-kebiao-ios-unsigned.ipa`
+- 页面：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/tag/v1.0.4`
+- Android APK：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.4/aoxiang-kebiao-v1.0.4.apk`
+- iOS IPA：`https://github.com/Xio-Shark/aoxiang-kebiao/releases/download/v1.0.4/aoxiang-kebiao-v1.0.4-ios-unsigned.ipa`
 
 ### APK 校验
 
@@ -137,13 +137,16 @@ cd schedule-app
 build_apk.bat
 ```
 
-## 7. 功能范围
+## 7. 功能特性 (v1.0.4)
 
-- 课表网格展示（按星期/节次）
-- `.docx` / `.json` 导入
-- 导入后去重或覆盖
-- 本地持久化存储
-- Android APK 发布
+- **课表日历融合网格**：按星期/节次排布，顶栏实时感知真实月份与日期，高亮今日「Today」，支持一键「回到本周」
+- **智能重叠课程排版**：多门课程时段冲突时支持横向并列排版，杜绝完全遮挡
+- **渲染性能提升**：剔除高开销 BackdropFilter，采用硬件加速渐变卡片设计，滑动顺滑流畅
+- **全生命周期课程管理**：支持手动新增、编辑、删除课程，无需完全依赖解析脚本
+- **学期与周次设置**：可自由调整开学第一周日期，或快捷「设本周为第1周」
+- **多源数据导入**：支持翱翔教务系统直接导入嗅探、`.docx` / `.xlsx` / `.ics` / `.json` 文件本地导入
+- **本地持久化存储**：离线优先，数据保存在手机本地沙盒
+- **云端多端自动化构建**：GitHub Actions 自动构建发布 Android APK 与 iOS IPA
 
 ## 8. 维护约定
 

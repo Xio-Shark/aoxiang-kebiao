@@ -1,0 +1,31 @@
+# Output binaries
+*.apk
+*.aab
+*.ipa
+apk_output/
+翱翔课表.apk
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/**/build/
+**/android/app/build/
+*.hprof
+
+# iOS
+**/ios/.symlinks/
+**/ios/Pods/
+**/ios/Podfile.lock
+**/ios/**/build/
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.iml

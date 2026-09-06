@@ -2,7 +2,7 @@ name: aoxiang_schedule
 description: 课表应用 - Flutter Clean Architecture
 publish_to: 'none'
 
-version: 1.0.3+1
+version: 1.0.4+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
