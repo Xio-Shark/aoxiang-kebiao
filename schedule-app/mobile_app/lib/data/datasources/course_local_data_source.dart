@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/result/result.dart';
-import '../../models/course_model.dart';
+import '../models/course_model.dart';
 
 abstract interface class CourseLocalDataSource {
   Future<Result<void>> saveCourses(List<CourseModel> courses);
