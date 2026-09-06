@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:aoxiang_schedule/data/datasources/course_file_import_data_source.dart';
 import 'package:aoxiang_schedule/domain/entities/course.dart';
@@ -137,34 +136,6 @@ void main() {
           expect(courses[1].startWeek, 10);
         },
         failure: (failure) => fail('不应失败: ${failure.message}'),
-      );
-    });
-
-    test('可解析真实课表 DOCX（我的课表）', () async {
-      final source = LocalCourseFileImportDataSource();
-      final file = File('test/fixtures/my_schedule.docx');
-      if (!await file.exists()) {
-        // 个人隐私课表文件若未随公开仓库提交则跳过
-        return;
-      }
-      final bytes = await file.readAsBytes();
-
-      final result = await source.parseCourses(
-        fileName: 'my_schedule.docx',
-        bytes: bytes,
-      );
-
-      result.when(
-        success: (courses) {
-          final names = courses.map((e) => e.name).toSet();
-          expect(courses.length, greaterThanOrEqualTo(15));
-          expect(names.any((n) => n.contains('计算机组成与系统结构')), isTrue);
-          expect(names.any((n) => n.contains('离散数学')), isTrue);
-          expect(names.any((n) => n.contains('数字图像处理')), isTrue);
-          expect(names.any((n) => n.contains('物联网技术学科前沿')), isTrue);
-          expect(names.any((n) => n.contains('数据结构实验')), isTrue);
-        },
-        failure: (failure) => fail('真实 DOCX 不应失败: ${failure.message}'),
       );
     });
   });
