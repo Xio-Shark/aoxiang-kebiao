@@ -39,12 +39,14 @@ class CourseRepositoryImpl implements CourseRepository {
   @override
   Future<Result<List<Course>>> getAllCourses() async {
     final result = await _localDataSource.getCourses();
-    switch (result) {
-      case Success(:final data):
-        return Result.success(data.map((c) => c.toEntity()).toList());
-      case FailureResult(:final failureValue):
-        return Result.failure(failureValue);
+    if (result is Success<List<CourseModel>>) {
+      final list = result.data.map((c) => c.toEntity()).toList();
+      return Result.success(list);
     }
+    if (result is FailureResult<List<CourseModel>>) {
+      return Result.failure(result.failureValue);
+    }
+    return const Result.failure(Failure.storage(message: '获取课程列表失败'));
   }
 
   @override
@@ -147,45 +149,49 @@ class CourseRepositoryImpl implements CourseRepository {
   @override
   Future<Result<Course>> updateCourse(Course course) async {
     final allResult = await _localDataSource.getCourses();
-    switch (allResult) {
-      case Success(:final data):
-        var found = false;
-        final next = data.map((item) {
-          if (item.id != course.id) {
-            return item;
-          }
-          found = true;
-          return CourseModel.fromEntity(course);
-        }).toList();
-
-        if (!found) {
-          return Result.failure(
-            Failure.validation(message: '未找到要更新的课程: ${course.id}'),
-          );
-        }
-
-        final saveResult = await _localDataSource.saveCourses(next);
-        switch (saveResult) {
-          case Success():
-            return Result.success(course);
-          case FailureResult(:final failureValue):
-            return Result.failure(failureValue);
-        }
-      case FailureResult(:final failureValue):
-        return Result.failure(failureValue);
+    if (allResult is! Success<List<CourseModel>>) {
+      if (allResult is FailureResult<List<CourseModel>>) {
+        return Result.failure(allResult.failureValue);
+      }
+      return const Result.failure(Failure.storage(message: '读取课程列表失败'));
     }
+
+    var found = false;
+    final next = allResult.data.map((item) {
+      if (item.id != course.id) {
+        return item;
+      }
+      found = true;
+      return CourseModel.fromEntity(course);
+    }).toList();
+
+    if (!found) {
+      return Result.failure(
+        Failure.validation(message: '未找到要更新的课程: ${course.id}'),
+      );
+    }
+
+    final saveResult = await _localDataSource.saveCourses(next);
+    if (saveResult is Success) {
+      return Result.success(course);
+    }
+    if (saveResult is FailureResult) {
+      return Result.failure(saveResult.failureValue);
+    }
+    return const Result.failure(Failure.storage(message: '保存更新失败'));
   }
 
   @override
   Future<Result<void>> deleteCourse(String id) async {
     final allResult = await _localDataSource.getCourses();
-    switch (allResult) {
-      case Success(:final data):
-        final next = data.where((course) => course.id != id).toList();
-        return _localDataSource.saveCourses(next);
-      case FailureResult(:final failureValue):
-        return Result.failure(failureValue);
+    if (allResult is Success<List<CourseModel>>) {
+      final next = allResult.data.where((course) => course.id != id).toList();
+      return _localDataSource.saveCourses(next);
     }
+    if (allResult is FailureResult<List<CourseModel>>) {
+      return Result.failure(allResult.failureValue);
+    }
+    return const Result.failure(Failure.storage(message: '删除课程失败'));
   }
 
   @override
