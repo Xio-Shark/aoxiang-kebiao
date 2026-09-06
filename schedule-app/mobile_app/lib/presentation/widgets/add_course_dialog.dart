@@ -69,7 +69,7 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
     _startWeek = c?.startWeek ?? 1;
     _endWeek = c?.endWeek ?? 18;
     _weekPattern = c?.weekPattern ?? WeekPattern.all;
-    _selectedColor = c?.color ?? CourseColorPalette.predefinedColors[0].toARGB32();
+    _selectedColor = c?.color ?? CourseColorPalette.morandiColors.first;
   }
 
   @override
@@ -344,8 +344,7 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: CourseColorPalette.predefinedColors.map((color) {
-                  final colorVal = color.toARGB32();
+                children: CourseColorPalette.morandiColors.map((colorVal) {
                   final isSelected = _selectedColor == colorVal;
                   return GestureDetector(
                     onTap: () => setState(() => _selectedColor = colorVal),
@@ -353,7 +352,7 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: color,
+                        color: Color(colorVal),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isSelected ? theme.colorScheme.onSurface : Colors.transparent,

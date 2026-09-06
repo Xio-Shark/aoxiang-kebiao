@@ -39,9 +39,12 @@ class CourseRepositoryImpl implements CourseRepository {
   @override
   Future<Result<List<Course>>> getAllCourses() async {
     final result = await _localDataSource.getCourses();
-    return result.mapSuccess((courses) {
-      return courses.map((course) => course.toEntity()).toList();
-    });
+    switch (result) {
+      case Success(:final data):
+        return Result.success(data.map((c) => c.toEntity()).toList());
+      case FailureResult(:final failureValue):
+        return Result.failure(failureValue);
+    }
   }
 
   @override
@@ -144,10 +147,10 @@ class CourseRepositoryImpl implements CourseRepository {
   @override
   Future<Result<Course>> updateCourse(Course course) async {
     final allResult = await _localDataSource.getCourses();
-    return allResult.when(
-      success: (courses) async {
+    switch (allResult) {
+      case Success(:final data):
         var found = false;
-        final next = courses.map((item) {
+        final next = data.map((item) {
           if (item.id != course.id) {
             return item;
           }
@@ -162,25 +165,27 @@ class CourseRepositoryImpl implements CourseRepository {
         }
 
         final saveResult = await _localDataSource.saveCourses(next);
-        return saveResult.when(
-          success: (_) => Result.success(course),
-          failure: (failure) => Result.failure(failure),
-        );
-      },
-      failure: (failure) async => Result.failure(failure),
-    );
+        switch (saveResult) {
+          case Success():
+            return Result.success(course);
+          case FailureResult(:final failureValue):
+            return Result.failure(failureValue);
+        }
+      case FailureResult(:final failureValue):
+        return Result.failure(failureValue);
+    }
   }
 
   @override
   Future<Result<void>> deleteCourse(String id) async {
     final allResult = await _localDataSource.getCourses();
-    return allResult.when(
-      success: (courses) {
-        final next = courses.where((course) => course.id != id).toList();
+    switch (allResult) {
+      case Success(:final data):
+        final next = data.where((course) => course.id != id).toList();
         return _localDataSource.saveCourses(next);
-      },
-      failure: (failure) async => Result.failure(failure),
-    );
+      case FailureResult(:final failureValue):
+        return Result.failure(failureValue);
+    }
   }
 
   @override
