@@ -22,7 +22,7 @@ class ScheduleBackground extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        radialGradient: RadialGradient(
+        gradient: RadialGradient(
           center: const Alignment(-0.7, -0.9),
           radius: 1.4,
           colors: [
