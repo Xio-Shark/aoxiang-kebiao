@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/providers/app_providers.dart';
 import '../../domain/entities/course.dart';
+import 'add_course_dialog.dart';
 
-class CourseDetailSheet extends StatefulWidget {
+class CourseDetailSheet extends ConsumerStatefulWidget {
   final Course course;
   final List<Course> overlappingCourses;
 
@@ -13,16 +16,72 @@ class CourseDetailSheet extends StatefulWidget {
   });
 
   @override
-  State<CourseDetailSheet> createState() => _CourseDetailSheetState();
+  ConsumerState<CourseDetailSheet> createState() => _CourseDetailSheetState();
 }
 
-class _CourseDetailSheetState extends State<CourseDetailSheet> {
+class _CourseDetailSheetState extends ConsumerState<CourseDetailSheet> {
   late Course _currentCourse;
 
   @override
   void initState() {
     super.initState();
     _currentCourse = widget.course;
+  }
+
+  Future<void> _deleteCourse() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除课程'),
+        content: Text('确定要删除「${_currentCourse.name}」吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final result = await ref.read(manageCourseUseCaseProvider).delete(_currentCourse.id);
+      result.when(
+        success: (_) {
+          ref.invalidate(scheduleProvider);
+          for (var w = 1; w <= 25; w++) {
+            ref.invalidate(weekScheduleProvider(w));
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('已删除课程「${_currentCourse.name}」')),
+            );
+            Navigator.of(context).pop();
+          }
+        },
+        failure: (f) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('删除失败: ${f.message}')),
+            );
+          }
+        },
+      );
+    }
+  }
+
+  Future<void> _editCourse() async {
+    final updated = await AddCourseDialog.show(
+      context,
+      initialCourse: _currentCourse,
+    );
+    if (updated == true && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -115,6 +174,27 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                   label: '备注',
                   value: _currentCourse.note,
                 ),
+              const SizedBox(height: 16),
+              // 编辑与删除操作按钮栏
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _editCourse,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('编辑课程'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: _deleteCourse,
+                      icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
+                      label: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

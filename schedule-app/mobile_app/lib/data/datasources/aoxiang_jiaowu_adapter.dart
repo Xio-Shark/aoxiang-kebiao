@@ -3,6 +3,8 @@
 
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
 
 import '../../core/constants/course_color_palette.dart';
 import '../../core/error/failure.dart';
@@ -96,65 +98,126 @@ class AoxiangJiaowuAdapter {
     return list;
   }
 
-  /// 从标准 HTML 课表格子中智能提取课程
+  /// 从标准 HTML 课表格子中智能提取课程（多行多列二维矩阵解析）
   List<Course> parseHtmlSchedule(String html) {
     final list = <Course>[];
-    var counter = 1;
+    try {
+      final doc = html_parser.parse(html);
+      final tables = doc.querySelectorAll('table');
+      if (tables.isEmpty) return list;
 
-    // 正则提取常见课表单元格
-    final cellRegex = RegExp(
-      r'<td[^>]*class="[^"]*(?:timetable|kebiao|kb|kb_cell)[^"]*"[^>]*>(.*?)</td>',
-      caseSensitive: false,
-      dotAll: true,
-    );
+      dom.Element? scheduleTable;
+      for (final table in tables) {
+        final rows = table.querySelectorAll('tr');
+        if (rows.length >= 4) {
+          scheduleTable = table;
+          break;
+        }
+      }
+      scheduleTable ??= tables.first;
 
-    final matches = cellRegex.allMatches(html);
-    for (final match in matches) {
-      final cellContent = match.group(1) ?? '';
-      final textLines = cellContent
-          .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-          .replaceAll(RegExp(r'<[^>]+>'), '')
-          .split('\n')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
+      final rows = scheduleTable.querySelectorAll('tr');
+      if (rows.length < 2) return list;
 
-      if (textLines.isEmpty) continue;
-      final name = textLines.first;
-      if (name.length < 2) continue;
+      // 提取表头星期映射
+      final headerRow = rows.first;
+      final headerCells = headerRow.querySelectorAll('th, td');
+      final dayColMap = <int, int>{};
 
-      var teacher = '';
-      var classroom = '';
-      var weeksStr = '1-16周';
-
-      for (var i = 1; i < textLines.length; i++) {
-        final line = textLines[i];
-        if (line.contains('周')) {
-          weeksStr = line;
-        } else if (line.contains('教') || line.contains('楼') || line.contains('室') || line.contains('区')) {
-          classroom = line;
-        } else if (teacher.isEmpty && line.length <= 6) {
-          teacher = line;
+      for (var col = 0; col < headerCells.length; col++) {
+        final txt = headerCells[col].text.trim();
+        if (txt.contains('一')) {
+          dayColMap[col] = 1;
+        } else if (txt.contains('二')) {
+          dayColMap[col] = 2;
+        } else if (txt.contains('三')) {
+          dayColMap[col] = 3;
+        } else if (txt.contains('四')) {
+          dayColMap[col] = 4;
+        } else if (txt.contains('五')) {
+          dayColMap[col] = 5;
+        } else if (txt.contains('六')) {
+          dayColMap[col] = 6;
+        } else if (txt.contains('日') || txt.contains('天') || txt.contains('七')) {
+          dayColMap[col] = 7;
         }
       }
 
-      final weekSpec = _parseWeekString(weeksStr);
-      list.add(Course(
-        id: 'nwpu-html-${counter++}',
-        name: name,
-        teacher: teacher,
-        classroom: classroom,
-        campus: '长安校区',
-        weekday: 1,
-        startSection: 1,
-        sectionCount: 2,
-        startWeek: weekSpec.start,
-        endWeek: weekSpec.end,
-        weekPattern: weekSpec.pattern,
-        customWeeks: weekSpec.customWeeks,
-        color: CourseColorPalette.getColorForName(name),
-      ));
-    }
+      var counter = 1;
+      for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+        final row = rows[rowIndex];
+        final cells = row.querySelectorAll('td, th');
+        if (cells.isEmpty) continue;
+
+        // 获取当前行的默认节次估算
+        final firstCellText = cells.first.text.trim();
+        final secMatch = RegExp(r'\d+').firstMatch(firstCellText);
+        final rowSection = secMatch != null ? int.tryParse(secMatch.group(0)!) ?? rowIndex : rowIndex;
+
+        for (var colIndex = 0; colIndex < cells.length; colIndex++) {
+          final weekday = dayColMap[colIndex] ?? (colIndex > 0 && colIndex <= 7 ? colIndex : null);
+          if (weekday == null) continue;
+
+          final cell = cells[colIndex];
+          final text = cell.text.trim();
+          if (text.isEmpty || text.length < 2) continue;
+
+          final lines = cell.innerHtml
+              .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+              .replaceAll(RegExp(r'<[^>]+>'), '')
+              .split('\n')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
+
+          if (lines.isEmpty) continue;
+          final name = lines.first;
+          if (name.length < 2 || name.contains('星期') || name.contains('节次')) continue;
+
+          var teacher = '';
+          var classroom = '';
+          var weeksStr = '1-18周';
+          var customStartSection = rowSection;
+          var customSectionCount = 2;
+
+          for (var i = 1; i < lines.length; i++) {
+            final line = lines[i];
+            if (line.contains('周')) {
+              weeksStr = line;
+            } else if (line.contains('节')) {
+              final secNums = RegExp(r'\d+').allMatches(line).map((m) => int.parse(m.group(0)!)).toList();
+              if (secNums.isNotEmpty) {
+                customStartSection = secNums.first;
+                if (secNums.length > 1) {
+                  customSectionCount = (secNums.last - secNums.first + 1).clamp(1, 4);
+                }
+              }
+            } else if (line.contains('教') || line.contains('楼') || line.contains('室') || line.contains('区') || line.contains('馆')) {
+              classroom = line;
+            } else if (teacher.isEmpty && line.length <= 6) {
+              teacher = line;
+            }
+          }
+
+          final weekSpec = _parseWeekString(weeksStr);
+          list.add(Course(
+            id: 'nwpu-html-${counter++}',
+            name: name,
+            teacher: teacher,
+            classroom: classroom,
+            campus: '长安校区',
+            weekday: weekday.clamp(1, 7),
+            startSection: customStartSection.clamp(1, 12),
+            sectionCount: customSectionCount.clamp(1, 4),
+            startWeek: weekSpec.start,
+            endWeek: weekSpec.end,
+            weekPattern: weekSpec.pattern,
+            customWeeks: weekSpec.customWeeks,
+            color: CourseColorPalette.getColorForName(name),
+          ));
+        }
+      }
+    } catch (_) {}
 
     return list;
   }

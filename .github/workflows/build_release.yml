@@ -1,0 +1,114 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd schedule-app/mobile_app
+          flutter pub get
+
+      - name: Build Android APK
+        run: |
+          cd schedule-app/mobile_app
+          flutter build apk --release
+
+      - name: Prepare APK Asset
+        run: |
+          TAG_OR_REF="${GITHUB_REF_NAME:-latest}"
+          cp schedule-app/mobile_app/build/app/outputs/flutter-apk/app-release.apk "./aoxiang-kebiao-${TAG_OR_REF}.apk"
+          cp schedule-app/mobile_app/build/app/outputs/flutter-apk/app-release.apk ./aoxiang-kebiao.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aoxiang-kebiao-android-apk
+          path: |
+            aoxiang-kebiao-*.apk
+            aoxiang-kebiao.apk
+          if-no-files-found: error
+
+      - name: Publish Android APK to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            aoxiang-kebiao-*.apk
+            aoxiang-kebiao.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-ios:
+    name: Build iOS IPA (Unsigned)
+    runs-on: macos-latest
+    needs: build-android
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd schedule-app/mobile_app
+          flutter pub get
+
+      - name: Build iOS app (no codesign)
+        run: |
+          cd schedule-app/mobile_app
+          flutter build ios --release --no-codesign
+
+      - name: Package to IPA
+        run: |
+          cd schedule-app/mobile_app/build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          TAG_OR_REF="${GITHUB_REF_NAME:-latest}"
+          zip -r "aoxiang-kebiao-${TAG_OR_REF}-ios-unsigned.ipa" Payload
+          mv "aoxiang-kebiao-${TAG_OR_REF}-ios-unsigned.ipa" ../../../../
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aoxiang-kebiao-ios-ipa
+          path: aoxiang-kebiao-*-ios-unsigned.ipa
+          if-no-files-found: error
+
+      - name: Publish iOS IPA to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: aoxiang-kebiao-*-ios-unsigned.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -38,9 +38,18 @@ class SharedPrefsDataSource implements CourseLocalDataSource {
   
   SharedPrefsDataSource(this._prefs);
   
+  void _clearSnapshots() {
+    _memoryWeekCache.clear();
+    final keys = _prefs.getKeys().where((k) => k.startsWith('snapshot_week_')).toList();
+    for (final k in keys) {
+      _prefs.remove(k);
+    }
+  }
+
   @override
   Future<Result<void>> saveCourses(List<CourseModel> courses) async {
     try {
+      _clearSnapshots();
       final jsonList = courses.map((e) => e.toJson()).toList();
       final jsonString = jsonEncode(jsonList);
       await _prefs.setString(_coursesKey, jsonString);
@@ -80,6 +89,7 @@ class SharedPrefsDataSource implements CourseLocalDataSource {
   @override
   Future<Result<void>> clearCourses() async {
     try {
+      _clearSnapshots();
       await _prefs.remove(_coursesKey);
       return const Result.success(null);
     } catch (e) {
