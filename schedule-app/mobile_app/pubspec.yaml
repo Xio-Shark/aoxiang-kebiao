@@ -2,7 +2,7 @@ name: aoxiang_schedule
 description: 课表应用 - Flutter Clean Architecture
 publish_to: 'none'
 
-version: 1.0.4+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -34,10 +34,15 @@ dependencies:
   path: ^1.8.3
   archive: ^3.6.1
   xml: ^6.5.0
+  syncfusion_flutter_pdf: ^33.2.13
 
   # 内嵌网页与教务直接导入
   flutter_inappwebview: ^6.1.5
   html: ^0.15.4
+
+  # 系统级课前本地通知
+  flutter_local_notifications: ^19.5.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

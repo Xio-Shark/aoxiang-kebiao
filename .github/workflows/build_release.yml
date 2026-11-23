@@ -34,6 +34,12 @@ jobs:
           cd schedule-app/mobile_app
           flutter pub get
 
+      - name: Analyze & Run Tests
+        run: |
+          cd schedule-app/mobile_app
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+          flutter test
+
       - name: Build Android APK
         run: |
           cd schedule-app/mobile_app
@@ -42,7 +48,11 @@ jobs:
 
       - name: Prepare APK Asset
         run: |
-          TAG_OR_REF="${GITHUB_REF_NAME:-latest}"
+          VERSION=$(grep '^version:' schedule-app/mobile_app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          TAG_OR_REF="${GITHUB_REF_NAME:-v${VERSION}}"
+          if [[ "$TAG_OR_REF" == "main" ]]; then
+            TAG_OR_REF="v${VERSION}"
+          fi
           cp schedule-app/mobile_app/build/app/outputs/flutter-apk/app-release.apk "./aoxiang-kebiao-${TAG_OR_REF}.apk"
           cp schedule-app/mobile_app/build/app/outputs/flutter-apk/app-release.apk ./aoxiang-kebiao.apk
 
@@ -55,13 +65,95 @@ jobs:
             aoxiang-kebiao.apk
           if-no-files-found: error
 
-      - name: Publish Android APK to Release
-        if: startsWith(github.ref, 'refs/tags/')
+  build-ios:
+    name: Build iOS IPA (Unsigned)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Bootstrap iOS project scaffold if missing
+        run: |
+          cd schedule-app/mobile_app
+          if [ ! -d "ios/Runner.xcodeproj" ]; then
+            mkdir -p /tmp/ios_backup
+            cp ios/Runner/AppDelegate.swift /tmp/ios_backup/AppDelegate.swift
+            cp ios/Runner/Info.plist /tmp/ios_backup/Info.plist
+            flutter create --platforms=ios --org com.example --project-name aoxiang_schedule .
+            cp /tmp/ios_backup/AppDelegate.swift ios/Runner/AppDelegate.swift
+            cp /tmp/ios_backup/Info.plist ios/Runner/Info.plist
+          fi
+          # 确保部署目标 >= iOS 13.0（满足 flutter_inappwebview 6.x 与本地通知要求）
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g' ios/Runner.xcodeproj/project.pbxproj
+          if [ -f "ios/Podfile" ]; then
+            sed -i '' "s/# platform :ios, '[0-9.]*'/platform :ios, '13.0'/g" ios/Podfile
+            sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '13.0'/g" ios/Podfile
+          fi
+
+      - name: Install dependencies
+        run: |
+          cd schedule-app/mobile_app
+          flutter pub get
+
+      - name: Build iOS (Release, No Codesign)
+        run: |
+          cd schedule-app/mobile_app
+          flutter build ios --release --no-codesign
+
+      - name: Package Unsigned IPA
+        run: |
+          VERSION=$(grep '^version:' schedule-app/mobile_app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          TAG_OR_REF="${GITHUB_REF_NAME:-v${VERSION}}"
+          if [[ "$TAG_OR_REF" == "main" ]]; then
+            TAG_OR_REF="v${VERSION}"
+          fi
+          mkdir -p schedule-app/mobile_app/build/ios/ipa/Payload
+          cp -R schedule-app/mobile_app/build/ios/iphoneos/Runner.app schedule-app/mobile_app/build/ios/ipa/Payload/
+          (
+            cd schedule-app/mobile_app/build/ios/ipa
+            zip -r -y "${GITHUB_WORKSPACE}/aoxiang-kebiao-${TAG_OR_REF}-ios-unsigned.ipa" Payload
+          )
+          cp "./aoxiang-kebiao-${TAG_OR_REF}-ios-unsigned.ipa" ./aoxiang-kebiao-ios-unsigned.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aoxiang-kebiao-ios-ipa
+          path: |
+            aoxiang-kebiao-*-ios-unsigned.ipa
+            aoxiang-kebiao-ios-unsigned.ipa
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-android, build-ios]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Android Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: aoxiang-kebiao-android-apk
+          path: release-assets
+
+      - name: Download iOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: aoxiang-kebiao-ios-ipa
+          path: release-assets
+
+      - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            aoxiang-kebiao-*.apk
-            aoxiang-kebiao.apk
+            release-assets/*.apk
+            release-assets/*.ipa
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

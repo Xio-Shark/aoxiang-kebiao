@@ -1,16 +1,24 @@
-/// 文件导入数据源
+/// 多格式、多教务系统课表文件与文本导入数据源
+/// 支持 PDF、Word(.docx/.doc)、Excel(.xlsx/.xls)、CSV/TSV、ICS、HTML、JSON、纯文本
+/// 具备文件魔数/内容自动嗅探能力，即使扩展名不准确也能识别
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
-import 'package:xml/xml.dart';
 
+import '../../core/constants/course_color_palette.dart';
 import '../../core/error/failure.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/course.dart';
 import '../models/course_model.dart';
+import 'aoxiang_jiaowu_adapter.dart';
+import 'parsers/csv_schedule_parser.dart';
+import 'parsers/ics_schedule_parser.dart';
+import 'parsers/json_schedule_parser.dart';
+import 'parsers/office_schedule_parser.dart';
+import 'parsers/pdf_schedule_parser.dart';
+import 'parsers/schedule_text_utils.dart';
 
 abstract class CourseFileImportDataSource {
   Future<Result<List<Course>>> parseCourses({
@@ -18,9 +26,27 @@ abstract class CourseFileImportDataSource {
     String? fileName,
     List<int>? bytes,
   });
+
+  /// 直接解析剪贴板或粘贴文本（自动识别 JSON / HTML / CSV / TSV / ICS / 纯文本）
+  Future<Result<List<Course>>> parseRawText(String text);
 }
 
 class LocalCourseFileImportDataSource implements CourseFileImportDataSource {
+  static const List<String> supportedExtensions = [
+    'pdf',
+    'csv',
+    'tsv',
+    'docx',
+    'doc',
+    'xlsx',
+    'xls',
+    'ics',
+    'html',
+    'htm',
+    'json',
+    'txt',
+  ];
+
   @override
   Future<Result<List<Course>>> parseCourses({
     String? filePath,
@@ -33,28 +59,15 @@ class LocalCourseFileImportDataSource implements CourseFileImportDataSource {
           await _resolveFileBytes(filePath: filePath, bytes: bytes);
       final ext = p.extension(resolvedName).toLowerCase();
 
-      final courses = switch (ext) {
-        '.json' => _parseJSON(resolvedBytes),
-        '.docx' => _parseDOCX(resolvedBytes),
-        '.xlsx' || '.xls' => _parseXLSX(resolvedBytes),
-        '.ics' => _parseICS(resolvedBytes),
-        _ => throw const FormatException('不支持的文件类型，支持 JSON、DOCX、XLSX、ICS'),
-      };
+      final courses = _dispatchByExtAndMagic(ext: ext, bytes: resolvedBytes);
 
       if (courses.isEmpty) {
         return Result.failure(
-          Failure.validation(message: '导入文件中未解析到课程数据'),
+          Failure.validation(message: '导入文件中未解析到有效课程数据，请检查文件内容或换用官网直接导入'),
         );
       }
 
-      final baseId = DateTime.now().millisecondsSinceEpoch;
-      final normalized = <Course>[];
-      for (var i = 0; i < courses.length; i++) {
-        final model = CourseModel.fromEntity(courses[i]);
-        final id = model.id.trim().isEmpty ? 'import-$baseId-$i' : model.id;
-        normalized.add(model.toEntity().copyWith(id: id.trim()));
-      }
-      return Result.success(normalized);
+      return Result.success(_normalizeImportedCourses(courses));
     } on FormatException catch (e) {
       return Result.failure(
         Failure.parse(message: e.message, cause: e),
@@ -66,575 +79,163 @@ class LocalCourseFileImportDataSource implements CourseFileImportDataSource {
     }
   }
 
-  List<Course> _parseJSON(List<int> bytes) {
-    final content = utf8.decode(bytes);
-    final decoded = jsonDecode(content);
-    final maps = _extractCourseMaps(decoded);
-    return maps.map((item) => CourseModel.fromJson(item).toEntity()).toList();
-  }
-
-  List<Course> _parseDOCX(List<int> bytes) {
-    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-    final docFile = archive.findFile('word/document.xml');
-    if (docFile == null) {
-      throw const FormatException('DOCX 内容缺少 word/document.xml');
-    }
-
-    final xmlBytes = _toBytes(docFile.content);
-    final document = XmlDocument.parse(utf8.decode(xmlBytes));
-    final matrixCourses = _parseMatrixSchedule(document);
-    if (matrixCourses.isNotEmpty) {
-      return matrixCourses;
-    }
-
-    final tableCourses = _parseDocxTables(document);
-    if (tableCourses.isNotEmpty) {
-      return tableCourses;
-    }
-
-    final textCourses = _parseDocxText(document);
-    if (textCourses.isNotEmpty) {
-      return textCourses;
-    }
-
-    throw const FormatException('DOCX 中未识别到可导入的课程表结构');
-  }
-
-  List<Course> _parseXLSX(List<int> bytes) {
-    // xlsx 实质为标准 zip 包，内含 xl/sharedStrings.xml 与 xl/worksheets/sheet1.xml
+  @override
+  Future<Result<List<Course>>> parseRawText(String text) async {
     try {
-      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-      final sheetFile = archive.findFile('xl/worksheets/sheet1.xml') ??
-          archive.files.firstWhere((f) => f.name.startsWith('xl/worksheets/sheet'));
-      final sstFile = archive.findFile('xl/sharedStrings.xml');
-
-      List<String> sharedStrings = [];
-      if (sstFile != null) {
-        final sstDoc = XmlDocument.parse(utf8.decode(_toBytes(sstFile.content)));
-        sharedStrings = _findElements(sstDoc, 't').map((e) => e.innerText).toList();
-      }
-
-      final sheetDoc = XmlDocument.parse(utf8.decode(_toBytes(sheetFile.content)));
-      final rows = <List<String>>[];
-
-      for (final rowNode in _findElements(sheetDoc, 'row')) {
-        final rowValues = <String>[];
-        for (final cNode in _findElements(rowNode, 'c')) {
-          final type = cNode.getAttribute('t');
-          final vNode = cNode.findElements('v').firstOrNull;
-          if (vNode != null) {
-            final val = vNode.innerText.trim();
-            if (type == 's') {
-              final idx = int.tryParse(val);
-              if (idx != null && idx < sharedStrings.length) {
-                rowValues.add(sharedStrings[idx]);
-              } else {
-                rowValues.add(val);
-              }
-            } else {
-              rowValues.add(val);
-            }
-          } else {
-            rowValues.add('');
-          }
-        }
-        if (rowValues.any((cell) => cell.trim().isNotEmpty)) {
-          rows.add(rowValues);
-        }
-      }
-
-      final header = _detectHeader(rows);
-      if (header != null) {
-        final courses = <Course>[];
-        for (var i = header.rowIndex + 1; i < rows.length; i++) {
-          final course = _rowToCourse(rows[i], header.map, i);
-          if (course != null) {
-            courses.add(course);
-          }
-        }
-        if (courses.isNotEmpty) return courses;
-      }
-    } catch (_) {}
-
-    throw const FormatException('XLSX 中未识别到有效课程表结构');
-  }
-
-  List<Course> _parseICS(List<int> bytes) {
-    try {
-      final content = utf8.decode(bytes);
-      final lines = content.split(RegExp(r'\r?\n'));
-      final events = <Map<String, String>>[];
-      Map<String, String>? current;
-
-      for (final line in lines) {
-        final trimmed = line.trim();
-        if (trimmed == 'BEGIN:VEVENT') {
-          current = {};
-        } else if (trimmed == 'END:VEVENT') {
-          if (current != null) events.add(current);
-          current = null;
-        } else if (current != null) {
-          final colon = trimmed.indexOf(':');
-          if (colon > 0) {
-            final key = trimmed.substring(0, colon).split(';').first.toUpperCase();
-            final value = trimmed.substring(colon + 1);
-            current[key] = value;
-          }
-        }
-      }
-
-      final courses = <Course>[];
-      var idx = 1;
-      for (final event in events) {
-        final summary = event['SUMMARY'] ?? '';
-        if (summary.isEmpty) continue;
-        final location = event['LOCATION'] ?? '';
-        final description = event['DESCRIPTION'] ?? '';
-        final dtstart = event['DTSTART'] ?? '';
-
-        // 提取节次与时间
-        int weekday = 1;
-        int startSection = 1;
-        if (dtstart.length >= 8) {
-          final year = int.tryParse(dtstart.substring(0, 4)) ?? 2026;
-          final month = int.tryParse(dtstart.substring(4, 6)) ?? 1;
-          final day = int.tryParse(dtstart.substring(6, 8)) ?? 1;
-          final dt = DateTime(year, month, day);
-          weekday = dt.weekday;
-        }
-
-        courses.add(Course(
-          id: 'ics-${idx++}',
-          name: summary,
-          classroom: location,
-          teacher: description,
-          weekday: weekday,
-          startSection: startSection,
-          sectionCount: 2,
-          startWeek: 1,
-          endWeek: 20,
-        ));
-      }
-
-      if (courses.isNotEmpty) return courses;
-    } catch (_) {}
-
-    throw const FormatException('ICS 文件解析失败或未包含课程事件');
-  }
-
-  List<Course> _parseMatrixSchedule(XmlDocument document) {
-    final tables = _findElements(document, 'tbl').toList();
-    if (tables.isEmpty) {
-      return const [];
-    }
-
-    final rows = _findElements(tables.first, 'tr')
-        .map((row) => _findElements(row, 'tc')
-            .map((cell) => _cellText(cell).replaceAll(RegExp(r'\s+'), ' ').trim())
-            .toList())
-        .where((row) => row.any((cell) => cell.isNotEmpty))
-        .toList();
-    if (rows.length < 2) {
-      return const [];
-    }
-
-    final courses = <Course>[];
-    for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
-      final row = rows[rowIndex];
-      if (row.length < 3) {
-        continue;
-      }
-
-      final section = int.tryParse(RegExp(r'\d+').stringMatch(row[1]) ?? '');
-      if (section == null || section <= 0) {
-        continue;
-      }
-
-      final dayStartIndex = row.length - 7;
-      if (dayStartIndex < 2) {
-        continue;
-      }
-
-      for (var d = 0; d < 7; d++) {
-        final col = dayStartIndex + d;
-        if (col >= row.length) {
-          continue;
-        }
-        final cellText = row[col];
-        if (cellText.isEmpty) {
-          continue;
-        }
-        final weekday = d + 1;
-        final parsed = _parseMatrixCell(
-          text: cellText,
-          weekday: weekday,
-          fallbackSection: section,
-          rowIndex: rowIndex,
-          colIndex: col,
+      final trimmed = text.trim();
+      if (trimmed.isEmpty) {
+        return const Result.failure(
+          Failure.validation(message: '文本内容为空'),
         );
-        courses.addAll(parsed);
       }
-    }
 
-    final deduped = <String, Course>{};
-    for (final course in courses) {
-      final key =
-          '${course.name}|${course.weekday}|${course.startSection}|${course.sectionCount}|${course.startWeek}|${course.endWeek}|${course.weekPattern.name}|${course.teacher}|${course.classroom}|${course.customWeeks.join(",")}';
-      deduped[key] = course;
+      final courses = _parseSmartText(trimmed);
+      if (courses.isEmpty) {
+        return const Result.failure(
+          Failure.validation(
+            message: '未能从文本中识别课程，支持 JSON、CSV/TSV、HTML 表格、ICS 或「课程, 周一, 1-2节, 1-16周」格式',
+          ),
+        );
+      }
+      return Result.success(_normalizeImportedCourses(courses));
+    } on FormatException catch (e) {
+      return Result.failure(Failure.parse(message: e.message, cause: e));
+    } catch (e) {
+      return Result.failure(Failure.parse(message: '文本解析失败: $e', cause: e));
     }
-    return deduped.values.toList();
   }
 
-  List<Course> _parseMatrixCell({
-    required String text,
-    required int weekday,
-    required int fallbackSection,
-    required int rowIndex,
-    required int colIndex,
+  List<Course> _dispatchByExtAndMagic({
+    required String ext,
+    required List<int> bytes,
   }) {
-    final normalized = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    final matches = RegExp(r'\(([^()]*周[^()]*)\)\s*\((\d+(?:[-~]\d+)?节)\)')
-        .allMatches(normalized)
-        .toList();
-    if (matches.isEmpty) {
-      return const [];
+    // 1. 魔数嗅探优先处理明确二进制格式
+    if (_startsWithAscii(bytes, '%PDF')) {
+      return PdfScheduleParser.parseBytes(bytes);
     }
 
-    final firstWeekStart = matches.first.start;
-    var courseName = normalized.substring(0, firstWeekStart).trim();
-    courseName = courseName.replaceAll(RegExp(r'\s{2,}'), ' ');
-    if (courseName.isEmpty) {
-      return const [];
-    }
-
-    final courses = <Course>[];
-    for (var i = 0; i < matches.length; i++) {
-      final current = matches[i];
-      final nextStart = i + 1 < matches.length ? matches[i + 1].start : normalized.length;
-      final weekText = current.group(1) ?? '';
-      final sectionText = current.group(2) ?? '';
-      final section = _parseSection(sectionText) ??
-          _SectionRange(start: fallbackSection, end: fallbackSection);
-      final weekSpec = _parseWeekSpec(weekText);
-      if (weekSpec == null) {
-        continue;
+    if (_isZipHeader(bytes)) {
+      if (ext == '.docx') {
+        return OfficeScheduleParser.parseDocxOrDoc(bytes);
       }
-
-      final tail = normalized.substring(current.end, nextStart).trim();
-      final info = _extractClassroomAndTeacher(tail);
-      courses.add(
-        Course(
-          id: 'docx-m-$rowIndex-$colIndex-$i',
-          name: courseName,
-          teacher: info.teacher,
-          classroom: info.classroom,
-          weekday: weekday,
-          startSection: section.start,
-          sectionCount: section.end - section.start + 1,
-          startWeek: weekSpec.start,
-          endWeek: weekSpec.end,
-          weekPattern: weekSpec.pattern,
-          customWeeks: weekSpec.customWeeks,
-        ),
-      );
-    }
-
-    return courses;
-  }
-
-  _ClassroomTeacher _extractClassroomAndTeacher(String text) {
-    final normalized = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (normalized.isEmpty) {
-      return const _ClassroomTeacher(classroom: '', teacher: '');
-    }
-
-    final allTeacherMatches = RegExp(r'[\u4e00-\u9fa5A-Za-z·]{2,10}(?=\d|全校|本科|$)')
-        .allMatches(normalized)
-        .toList();
-    if (allTeacherMatches.isEmpty) {
-      return _ClassroomTeacher(classroom: normalized, teacher: '');
-    }
-
-    final teacherMatch = allTeacherMatches.last;
-    final teacher = teacherMatch.group(0)?.trim() ?? '';
-    final classroom = normalized.substring(0, teacherMatch.start).trim();
-    return _ClassroomTeacher(classroom: classroom, teacher: teacher);
-  }
-
-  List<int> _toBytes(dynamic content) {
-    if (content is List<int>) {
-      return content;
-    }
-    if (content is String) {
-      return utf8.encode(content);
-    }
-    throw const FormatException('DOCX 内容读取失败');
-  }
-
-  List<Course> _parseDocxTables(XmlDocument document) {
-    final rows = _findElements(document, 'tr')
-        .map((row) => _findElements(row, 'tc')
-            .map((cell) => _cellText(cell).trim())
-            .toList())
-        .where((row) => row.any((cell) => cell.isNotEmpty))
-        .toList();
-
-    if (rows.length < 2) {
-      return const [];
-    }
-
-    final header = _detectHeader(rows);
-    if (header == null) {
-      return const [];
-    }
-
-    final courses = <Course>[];
-    for (var i = header.rowIndex + 1; i < rows.length; i++) {
-      final parsed = _rowToCourse(rows[i], header.map, i);
-      if (parsed != null) {
-        courses.add(parsed);
+      if (ext == '.xlsx') {
+        return OfficeScheduleParser.parseXlsxOrXls(bytes);
+      }
+      // 扩展名不明确时，探测 ZIP 内部结构判断是 Word 还是 Excel
+      final zipKind = _sniffZipOfficeKind(bytes);
+      if (zipKind == 'docx') {
+        return OfficeScheduleParser.parseDocxOrDoc(bytes);
+      }
+      if (zipKind == 'xlsx') {
+        return OfficeScheduleParser.parseXlsxOrXls(bytes);
       }
     }
-    return courses;
+
+    // 2. 按扩展名路由
+    switch (ext) {
+      case '.pdf':
+        return PdfScheduleParser.parseBytes(bytes);
+      case '.docx':
+      case '.doc':
+        return OfficeScheduleParser.parseDocxOrDoc(bytes);
+      case '.xlsx':
+      case '.xls':
+        return OfficeScheduleParser.parseXlsxOrXls(bytes);
+      case '.csv':
+      case '.tsv':
+        return CsvScheduleParser.parseBytes(bytes);
+      case '.ics':
+        return IcsScheduleParser.parseBytes(bytes);
+      case '.json':
+        final jsonCourses = JsonScheduleParser.parseBytes(bytes);
+        if (jsonCourses.isNotEmpty) return jsonCourses;
+        return _parseSmartText(ScheduleTextUtils.decodeBytesFlexible(bytes));
+      case '.html':
+      case '.htm':
+        final text = ScheduleTextUtils.decodeBytesFlexible(bytes);
+        final adapterCourses = AoxiangJiaowuAdapter().parseRawContent(text);
+        if (adapterCourses.isNotEmpty) return adapterCourses;
+        return _parseSmartText(text);
+      case '.txt':
+      case '.wakeup_schedule':
+        return _parseSmartText(ScheduleTextUtils.decodeBytesFlexible(bytes));
+      default:
+        // 未知后缀时尝试文本多格式自动嗅探
+        final text = ScheduleTextUtils.decodeBytesFlexible(bytes);
+        final sniffed = _parseSmartText(text);
+        if (sniffed.isNotEmpty) {
+          return sniffed;
+        }
+        throw const FormatException(
+          '不支持的文件类型，支持 PDF、Word(.docx/.doc)、Excel(.xlsx/.xls)、CSV/TSV、ICS、HTML、JSON、TXT',
+        );
+    }
   }
 
-  List<Course> _parseDocxText(XmlDocument document) {
-    final lines = _findElements(document, 'p')
-        .map((pNode) => _findElements(pNode, 't').map((e) => e.innerText).join())
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .toList();
+  /// 智能多格式文本嗅探管道
+  List<Course> _parseSmartText(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return const [];
 
-    final courses = <Course>[];
+    // 1. ICS 日历
+    if (trimmed.contains('BEGIN:VCALENDAR') || trimmed.contains('BEGIN:VEVENT')) {
+      final ics = IcsScheduleParser.parseString(trimmed);
+      if (ics.isNotEmpty) return ics;
+    }
+
+    // 2. JSON（含树维 / 正方 / 强智 / WakeUp / 本应用格式）
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      final jsonCourses = JsonScheduleParser.parseString(trimmed);
+      if (jsonCourses.isNotEmpty) return jsonCourses;
+    }
+
+    // 3. HTML / 教务网页源码（含内嵌 script JSON）
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('<table') ||
+        lower.contains('<html') ||
+        trimmed.contains('studentTableVm') ||
+        trimmed.contains('kbList')) {
+      final webCourses = AoxiangJiaowuAdapter().parseRawContent(trimmed);
+      if (webCourses.isNotEmpty) return webCourses;
+    }
+
+    // 4. CSV / TSV（含列表式和二维矩阵式）
+    final csvCourses = CsvScheduleParser.parseString(trimmed);
+    if (csvCourses.isNotEmpty) return csvCourses;
+
+    // 5. 逐行自由格式文本解析
+    final lines = trimmed
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    final freeform = <Course>[];
     for (var i = 0; i < lines.length; i++) {
-      final course = _lineToCourse(lines[i], i);
-      if (course != null) {
-        courses.add(course);
-      }
-    }
-    return courses;
-  }
-
-  Course? _lineToCourse(String line, int index) {
-    final parts = line.split(RegExp(r'[,，\t]')).map((e) => e.trim()).toList();
-    if (parts.length < 4) {
-      return null;
-    }
-
-    final weekday = _parseWeekday(parts[1]);
-    final section = _parseSection(parts[2]);
-    final week = _parseWeekSpec(parts[3]);
-    if (weekday == null || section == null || week == null || parts[0].isEmpty) {
-      return null;
-    }
-
-    return Course(
-      id: 'docx-line-$index',
-      name: parts[0],
-      classroom: parts.length > 4 ? parts[4] : '',
-      teacher: parts.length > 5 ? parts[5] : '',
-      weekday: weekday,
-      startSection: section.start,
-      sectionCount: section.end - section.start + 1,
-      startWeek: week.start,
-      endWeek: week.end,
-      weekPattern: week.pattern,
-      customWeeks: week.customWeeks,
-    );
-  }
-
-  _HeaderDetection? _detectHeader(List<List<String>> rows) {
-    final aliasMap = _headerAliases;
-    var bestScore = 0;
-    _HeaderDetection? best;
-
-    for (var i = 0; i < rows.length; i++) {
-      final map = <String, int>{};
-      var score = 0;
-      for (var c = 0; c < rows[i].length; c++) {
-        final cell = rows[i][c].replaceAll(' ', '');
-        for (final entry in aliasMap.entries) {
-          if (map.containsKey(entry.key)) {
-            continue;
-          }
-          if (entry.value.any((alias) => cell.contains(alias))) {
-            map[entry.key] = c;
-            score++;
-          }
-        }
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        best = _HeaderDetection(rowIndex: i, map: map);
-      }
-    }
-
-    if (bestScore < 4 || best == null) {
-      return null;
-    }
-    if (!best.map.containsKey('name') ||
-        !best.map.containsKey('weekday') ||
-        !best.map.containsKey('section')) {
-      return null;
-    }
-    return best;
-  }
-
-  Course? _rowToCourse(List<String> row, Map<String, int> map, int index) {
-    final name = _cellValue(row, map['name']);
-    if (name.isEmpty) {
-      return null;
-    }
-
-    final weekday = _parseWeekday(_cellValue(row, map['weekday']));
-    final section = _parseSection(_cellValue(row, map['section']));
-    final week = _parseWeekSpec(_cellValue(row, map['week']));
-    if (weekday == null || section == null || week == null) {
-      return null;
-    }
-
-    return Course(
-      id: 'docx-row-$index',
-      name: name,
-      teacher: _cellValue(row, map['teacher']),
-      classroom: _cellValue(row, map['classroom']),
-      campus: _cellValue(row, map['campus']),
-      weekday: weekday,
-      startSection: section.start,
-      sectionCount: section.end - section.start + 1,
-      startWeek: week.start,
-      endWeek: week.end,
-      weekPattern: week.pattern,
-      customWeeks: week.customWeeks,
-    );
-  }
-
-  String _cellValue(List<String> row, int? index) {
-    if (index == null || index < 0 || index >= row.length) {
-      return '';
-    }
-    return row[index].trim();
-  }
-
-  String _cellText(XmlElement cell) {
-    return _findElements(cell, 't').map((e) => e.innerText).join();
-  }
-
-  Iterable<XmlElement> _findElements(XmlNode root, String localName) {
-    return root.descendants
-        .whereType<XmlElement>()
-        .where((e) => e.name.local == localName);
-  }
-
-  int? _parseWeekday(String text) {
-    final normalized = text.replaceAll('星期', '周').replaceAll('周天', '周日');
-    const map = {
-      '周一': 1,
-      '周二': 2,
-      '周三': 3,
-      '周四': 4,
-      '周五': 5,
-      '周六': 6,
-      '周日': 7,
-      '周七': 7,
-    };
-    for (final entry in map.entries) {
-      if (normalized.contains(entry.key)) {
-        return entry.value;
-      }
-    }
-
-    final num = int.tryParse(RegExp(r'\d').stringMatch(normalized) ?? '');
-    if (num != null && num >= 1 && num <= 7) {
-      return num;
-    }
-    return null;
-  }
-
-  _SectionRange? _parseSection(String text) {
-    final numbers = RegExp(r'\d+').allMatches(text).map((m) {
-      return int.parse(m.group(0)!);
-    }).toList();
-    if (numbers.isEmpty) {
-      return null;
-    }
-
-    final start = numbers.first;
-    final end = numbers.length > 1 ? numbers[1] : start;
-    final min = start < end ? start : end;
-    final max = start < end ? end : start;
-    if (min < 1) {
-      return null;
-    }
-    return _SectionRange(start: min, end: max);
-  }
-
-  _WeekSpec? _parseWeekSpec(String text) {
-    final raw = text.trim();
-    if (raw.isEmpty) {
-      return const _WeekSpec(
-        start: 1,
-        end: 25,
-        pattern: WeekPattern.all,
-        customWeeks: [],
+      final parsed = ScheduleTextUtils.parseFreeformLine(
+        lines[i],
+        i,
+        idPrefix: 'txt',
       );
-    }
-
-    final cleaned = raw.replaceAll('周', '');
-    final tokens = cleaned
-        .split(RegExp(r'[，,、]'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    final hasMultiToken = tokens.length > 1;
-
-    final expandedWeeks = <int>{};
-    for (final token in tokens) {
-      final range = RegExp(r'^(\d+)\s*[-~]\s*(\d+)$').firstMatch(token);
-      if (range != null) {
-        final a = int.parse(range.group(1)!);
-        final b = int.parse(range.group(2)!);
-        final start = a < b ? a : b;
-        final end = a < b ? b : a;
-        for (var i = start; i <= end; i++) {
-          if (i > 0) {
-            expandedWeeks.add(i);
-          }
-        }
-        continue;
-      }
-      final single = int.tryParse(RegExp(r'\d+').stringMatch(token) ?? '');
-      if (single != null && single > 0) {
-        expandedWeeks.add(single);
+      if (parsed != null) {
+        freeform.add(parsed);
       }
     }
+    return ScheduleTextUtils.dedupeAndMergeCourses(freeform);
+  }
 
-    if (expandedWeeks.isEmpty) {
-      return null;
+  List<Course> _normalizeImportedCourses(List<Course> courses) {
+    final deduped = ScheduleTextUtils.dedupeAndMergeCourses(courses);
+    final baseId = DateTime.now().millisecondsSinceEpoch;
+    final normalized = <Course>[];
+    for (var i = 0; i < deduped.length; i++) {
+      final model = CourseModel.fromEntity(deduped[i]);
+      final id = model.id.trim().isEmpty ? 'import-$baseId-$i' : model.id.trim();
+      final color = model.color == 0xFF4F779A
+          ? CourseColorPalette.getColorForName(model.name)
+          : model.color;
+      normalized.add(model.toEntity().copyWith(id: id, color: color));
     }
-
-    final weeks = expandedWeeks.toList()..sort();
-    final min = weeks.first;
-    final max = weeks.last;
-
-    var pattern = WeekPattern.all;
-    if (raw.contains('单')) {
-      pattern = WeekPattern.odd;
-    } else if (raw.contains('双')) {
-      pattern = WeekPattern.even;
-    } else if (hasMultiToken && (cleaned.contains(',') || cleaned.contains('，') || cleaned.contains('、') || tokens.length > 1)) {
-      pattern = WeekPattern.custom;
-    } else if (tokens.length > 1) {
-      pattern = WeekPattern.custom;
-    }
-
-    final customWeeks = pattern == WeekPattern.custom ? weeks : const <int>[];
-    return _WeekSpec(
-      start: min,
-      end: max,
-      pattern: pattern,
-      customWeeks: customWeeks,
-    );
+    return normalized;
   }
 
   String _resolveFileName(String? filePath, String? fileName) {
@@ -672,80 +273,32 @@ class LocalCourseFileImportDataSource implements CourseFileImportDataSource {
     return file.readAsBytes();
   }
 
-  List<Map<String, dynamic>> _extractCourseMaps(dynamic decoded) {
-    if (decoded is List) {
-      return decoded
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+  bool _startsWithAscii(List<int> bytes, String prefix) {
+    if (bytes.length < prefix.length) return false;
+    for (var i = 0; i < prefix.length; i++) {
+      if (bytes[i] != prefix.codeUnitAt(i)) return false;
     }
-
-    if (decoded is Map) {
-      final payload = Map<String, dynamic>.from(decoded);
-      final coursesField = payload['courses'];
-      if (coursesField is List) {
-        return coursesField
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-      }
-      return [payload];
-    }
-
-    return const [];
+    return true;
   }
-}
 
-const Map<String, List<String>> _headerAliases = {
-  'name': ['课程', '课程名', '课程名称'],
-  'teacher': ['教师', '老师', '任课教师'],
-  'classroom': ['教室', '地点', '上课地点'],
-  'weekday': ['星期', '周几', '周次日'],
-  'section': ['节次', '节', '时间', '上课时间'],
-  'week': ['周次', '起止周', '上课周', '教学周'],
-  'campus': ['校区'],
-};
+  bool _isZipHeader(List<int> bytes) {
+    return bytes.length >= 4 &&
+        bytes[0] == 0x50 &&
+        bytes[1] == 0x4B &&
+        bytes[2] == 0x03 &&
+        bytes[3] == 0x04;
+  }
 
-class _HeaderDetection {
-  final int rowIndex;
-  final Map<String, int> map;
-
-  const _HeaderDetection({
-    required this.rowIndex,
-    required this.map,
-  });
-}
-
-class _SectionRange {
-  final int start;
-  final int end;
-
-  const _SectionRange({
-    required this.start,
-    required this.end,
-  });
-}
-
-class _WeekSpec {
-  final int start;
-  final int end;
-  final WeekPattern pattern;
-  final List<int> customWeeks;
-
-  const _WeekSpec({
-    required this.start,
-    required this.end,
-    required this.pattern,
-    required this.customWeeks,
-  });
-}
-
-class _ClassroomTeacher {
-  final String classroom;
-  final String teacher;
-
-  const _ClassroomTeacher({
-    required this.classroom,
-    required this.teacher,
-  });
+  String? _sniffZipOfficeKind(List<int> bytes) {
+    try {
+      final archive = ZipDecoder().decodeBytes(bytes, verify: false);
+      if (archive.findFile('word/document.xml') != null) {
+        return 'docx';
+      }
+      if (archive.files.any((f) => f.name.startsWith('xl/worksheets/'))) {
+        return 'xlsx';
+      }
+    } catch (_) {}
+    return null;
+  }
 }

@@ -1,21 +1,25 @@
-/// Riverpod Providers - 依赖注入
-/// 提供全局可访问的 UseCases 和 Repository
+/// Riverpod Providers - 依赖注入与全局状态管理
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/app_constants.dart';
+import '../../core/constants/course_color_palette.dart';
 import '../../data/datasources/aoxiang_jiaowu_adapter.dart';
 import '../../data/datasources/course_file_import_data_source.dart';
 import '../../data/datasources/course_local_data_source.dart';
+import '../../data/datasources/parsers/schedule_text_utils.dart';
 import '../../data/repositories/course_repository_impl.dart';
+import '../../data/services/course_reminder_service.dart';
 import '../../domain/entities/course.dart';
+import '../../domain/entities/section_time.dart';
 import '../../domain/repositories/course_repository.dart';
 import '../usecases/schedule_usecases.dart';
 
 // ==================== Core Providers ====================
 
-/// SharedPreferences Provider
-/// 在 main 中 override
+/// SharedPreferences Provider（在 main 中 override）
 final sharedPreferencesProvider = Provider<SharedPreferences>(
   (_) => throw UnimplementedError('请在 main 中 override'),
 );
@@ -37,6 +41,11 @@ final aoxiangJiaowuAdapterProvider = Provider<AoxiangJiaowuAdapter>(
   (ref) => AoxiangJiaowuAdapter(),
 );
 
+/// 系统级课前通知服务 Provider（全局单例）
+final courseReminderServiceProvider = Provider<CourseReminderService>(
+  (ref) => CourseReminderService(),
+);
+
 /// Repository Provider
 final courseRepositoryProvider = Provider<CourseRepository>(
   (ref) => CourseRepositoryImpl(ref.watch(localDataSourceProvider)),
@@ -44,40 +53,82 @@ final courseRepositoryProvider = Provider<CourseRepository>(
 
 // ==================== UseCases ====================
 
-/// 导入课程 UseCase Provider
 final importScheduleUseCaseProvider = Provider<ImportScheduleUseCase>(
   (ref) => ImportScheduleUseCase(ref.watch(courseRepositoryProvider)),
 );
 
-/// 获取课程表 UseCase Provider
 final getScheduleUseCaseProvider = Provider<GetScheduleUseCase>(
   (ref) => GetScheduleUseCase(ref.watch(courseRepositoryProvider)),
 );
 
-/// 计算当前周 UseCase Provider
 final calculateWeekUseCaseProvider = Provider<CalculateCurrentWeekUseCase>(
   (ref) => CalculateCurrentWeekUseCase(ref.watch(courseRepositoryProvider)),
 );
 
-/// 管理课程 UseCase Provider
 final manageCourseUseCaseProvider = Provider<ManageCourseUseCase>(
   (ref) => ManageCourseUseCase(ref.watch(courseRepositoryProvider)),
 );
 
-/// 设置 UseCase Provider
 final settingsUseCaseProvider = Provider<SettingsUseCase>(
   (ref) => SettingsUseCase(ref.watch(courseRepositoryProvider)),
 );
 
-/// 合并课程 UseCase Provider
 final mergeCoursesUseCaseProvider = Provider<MergeCoursesUseCase>(
   (ref) => MergeCoursesUseCase(ref.watch(courseRepositoryProvider)),
 );
 
-/// 冲突检测 UseCase Provider
 final checkConflictUseCaseProvider = Provider<CheckConflictUseCase>(
   (ref) => CheckConflictUseCase(ref.watch(courseRepositoryProvider)),
 );
+
+// ==================== Theme & Appearance ====================
+
+/// 主题外观模式（跟随系统 / 浅色 / 深色）
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>(
+  (ref) => ThemeModeNotifier(ref.watch(sharedPreferencesProvider)),
+);
+
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  static const String _key = 'app_theme_mode';
+  final SharedPreferences _prefs;
+
+  ThemeModeNotifier(this._prefs) : super(_readInitial(_prefs));
+
+  static ThemeMode _readInitial(SharedPreferences prefs) {
+    final stored = prefs.getString(_key);
+    return switch (stored) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
+  Future<void> setMode(ThemeMode mode) async {
+    state = mode;
+    await _prefs.setString(_key, mode.name);
+  }
+}
+
+/// 主题强调色 Seed Color
+final themeSeedColorProvider =
+    StateNotifierProvider<ThemeSeedColorNotifier, int>(
+  (ref) => ThemeSeedColorNotifier(ref.watch(sharedPreferencesProvider)),
+);
+
+class ThemeSeedColorNotifier extends StateNotifier<int> {
+  static const String _key = 'app_theme_seed_color';
+  static final int _defaultColor = CourseColorPalette.themePresets.first.seedColor;
+  final SharedPreferences _prefs;
+
+  ThemeSeedColorNotifier(this._prefs)
+      : super(_prefs.getInt(_key) ?? _defaultColor);
+
+  Future<void> setSeedColor(int colorValue) async {
+    state = colorValue;
+    await _prefs.setInt(_key, colorValue);
+  }
+}
 
 // ==================== UI Preferences ====================
 
@@ -87,7 +138,6 @@ final backgroundOpacityProvider =
   (ref) => BackgroundOpacityNotifier(ref.watch(sharedPreferencesProvider)),
 );
 
-/// 背景透明度设置控制器
 class BackgroundOpacityNotifier extends StateNotifier<double> {
   static const String _key = 'background_opacity';
   static const double _defaultValue = 0.82;
@@ -118,7 +168,6 @@ final backgroundImagePathProvider =
   (ref) => BackgroundImagePathNotifier(ref.watch(sharedPreferencesProvider)),
 );
 
-/// 背景图路径设置控制器
 class BackgroundImagePathNotifier extends StateNotifier<String?> {
   static const String _key = 'background_image_path';
 
@@ -175,13 +224,13 @@ class BackgroundTransformState {
 }
 
 /// 背景变换设置 Provider
-final backgroundTransformProvider =
-    StateNotifierProvider<BackgroundTransformNotifier, BackgroundTransformState>(
+final backgroundTransformProvider = StateNotifierProvider<
+    BackgroundTransformNotifier, BackgroundTransformState>(
   (ref) => BackgroundTransformNotifier(ref.watch(sharedPreferencesProvider)),
 );
 
-/// 背景变换设置控制器
-class BackgroundTransformNotifier extends StateNotifier<BackgroundTransformState> {
+class BackgroundTransformNotifier
+    extends StateNotifier<BackgroundTransformState> {
   static const String _scaleKey = 'background_scale';
   static const String _offsetXKey = 'background_offset_x';
   static const String _offsetYKey = 'background_offset_y';
@@ -238,7 +287,6 @@ final termStartDateProvider =
   (ref) => TermStartDateNotifier(ref.watch(sharedPreferencesProvider)),
 );
 
-/// 学期开学日期设置控制器
 class TermStartDateNotifier extends StateNotifier<DateTime> {
   static const String _key = 'term_start';
   final SharedPreferences _prefs;
@@ -254,7 +302,6 @@ class TermStartDateNotifier extends StateNotifier<DateTime> {
             .subtract(Duration(days: parsed.weekday - 1));
       }
     }
-    // 默认推算：以当前周周一作为第 1 周周一
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: now.weekday - 1));
@@ -287,10 +334,10 @@ final currentWeekProvider = Provider<int>((ref) {
     return 1;
   }
   final week = (diffDays ~/ 7) + 1;
-  return week.clamp(1, 25);
+  return week.clamp(AppConstants.minWeek, AppConstants.maxWeek);
 });
 
-/// 当前选中周 Provider（同步，默认初始化为当前实际周）
+/// 当前选中周 Provider
 final selectedWeekProvider = StateProvider<int>((ref) {
   return ref.watch(currentWeekProvider);
 });
@@ -302,7 +349,7 @@ final weekDatesProvider = Provider.family<List<DateTime>, int>((ref, week) {
   return List.generate(7, (i) => weekMonday.add(Duration(days: i)));
 });
 
-/// 给定周对应的月份文本 Provider（例如 "9月" 或 "9/\n10月"）
+/// 给定周对应的月份文本 Provider
 final weekMonthDisplayProvider = Provider.family<String, int>((ref, week) {
   final dates = ref.watch(weekDatesProvider(week));
   final startMonth = dates.first.month;
@@ -320,7 +367,17 @@ final isCurrentWeekSelectedProvider = Provider<bool>((ref) {
   return selected == current;
 });
 
-/// 课程列表 Provider（指定周，支持 PageView 多周顺畅预加载与缓存）
+/// 全学期课程列表 Provider（用于空状态判断、周次分布圆点、课程统计）
+final allCoursesProvider = FutureProvider<List<Course>>((ref) async {
+  final useCase = ref.watch(getScheduleUseCaseProvider);
+  final result = await useCase.getAll();
+  return result.when(
+    success: (courses) => courses,
+    failure: (failure) => throw StateError(failure.message),
+  );
+});
+
+/// 课程列表 Provider（指定周，支持 PageView 多周预加载与缓存）
 final weekScheduleProvider =
     FutureProvider.family<List<Course>, int>((ref, week) async {
   final useCase = ref.watch(getScheduleUseCaseProvider);
@@ -348,3 +405,114 @@ final campusProvider = FutureProvider<String>((ref) async {
     failure: (_) => '',
   );
 });
+
+// ==================== 作息时间表 & 系统课前提醒 ====================
+
+/// 作息时间表 Provider（单一真相源，默认西工大长安校区 13 节）
+final sectionTimeTableProvider =
+    StateNotifierProvider<SectionTimeTableNotifier, SectionTimeTable>(
+  (ref) => SectionTimeTableNotifier(ref.watch(sharedPreferencesProvider)),
+);
+
+class SectionTimeTableNotifier extends StateNotifier<SectionTimeTable> {
+  static const String _key = 'section_time_table_v1';
+  final SharedPreferences _prefs;
+
+  SectionTimeTableNotifier(this._prefs) : super(_readInitial(_prefs)) {
+    ScheduleTextUtils.activeTimeTable = state;
+  }
+
+  static SectionTimeTable _readInitial(SharedPreferences prefs) {
+    final stored = SectionTimeTable.fromJsonString(prefs.getString(_key));
+    return stored ?? SectionTimeTable.nwpuChangan;
+  }
+
+  Future<void> applyPreset(SectionTimeTable preset) async {
+    state = preset;
+    ScheduleTextUtils.activeTimeTable = preset;
+    await _prefs.setString(_key, preset.toJsonString());
+  }
+
+  Future<void> updateSlot(SectionTimeSlot slot) async {
+    final next = state.updateSlot(slot);
+    state = next;
+    ScheduleTextUtils.activeTimeTable = next;
+    await _prefs.setString(_key, next.toJsonString());
+  }
+}
+
+/// 课前系统提醒配置 Provider
+final reminderSettingsProvider =
+    StateNotifierProvider<ReminderSettingsNotifier, CourseReminderSettings>(
+  (ref) => ReminderSettingsNotifier(ref.watch(sharedPreferencesProvider)),
+);
+
+class ReminderSettingsNotifier extends StateNotifier<CourseReminderSettings> {
+  static const String _enabledKey = 'course_reminder_enabled';
+  static const String _leadMinutesKey = 'course_reminder_lead_minutes';
+  static const String _soundKey = 'course_reminder_sound';
+  final SharedPreferences _prefs;
+
+  ReminderSettingsNotifier(this._prefs) : super(_readInitial(_prefs));
+
+  static CourseReminderSettings _readInitial(SharedPreferences prefs) {
+    return CourseReminderSettings(
+      enabled: prefs.getBool(_enabledKey) ?? false,
+      leadMinutes: (prefs.getInt(_leadMinutesKey) ?? 15).clamp(1, 60),
+      soundEnabled: prefs.getBool(_soundKey) ?? true,
+    );
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = state.copyWith(enabled: enabled);
+    await _prefs.setBool(_enabledKey, enabled);
+  }
+
+  Future<void> setLeadMinutes(int minutes) async {
+    final clamped = minutes.clamp(1, 60);
+    state = state.copyWith(leadMinutes: clamped);
+    await _prefs.setInt(_leadMinutesKey, clamped);
+  }
+
+  Future<void> setSoundEnabled(bool enabled) async {
+    state = state.copyWith(soundEnabled: enabled);
+    await _prefs.setBool(_soundKey, enabled);
+  }
+}
+
+/// 最近一次提醒同步状态报告（用于在设置页展示已预约节数及下一节提醒时间）
+final reminderSyncReportProvider = StateProvider<ReminderSyncReport?>((ref) {
+  return null;
+});
+
+/// 统一失效全部课表缓存（修复导入/修改后已缓存周视图不刷新的问题）
+void invalidateAllScheduleCaches(WidgetRef ref) {
+  ref.invalidate(allCoursesProvider);
+  ref.invalidate(scheduleProvider);
+  for (var w = AppConstants.minWeek; w <= AppConstants.maxWeek; w++) {
+    ref.invalidate(weekScheduleProvider(w));
+  }
+}
+
+/// 同步系统级课前提醒排程（课表导入/修改/切换作息/修改开学日期后自动调用）
+Future<ReminderSyncReport> syncCourseReminders(WidgetRef ref) async {
+  final settings = ref.read(reminderSettingsProvider);
+  final service = ref.read(courseReminderServiceProvider);
+  final termStart = ref.read(termStartDateProvider);
+  final timeTable = ref.read(sectionTimeTableProvider);
+
+  final allResult = await ref.read(getScheduleUseCaseProvider).getAll();
+  final courses = allResult.when(
+    success: (data) => data,
+    failure: (_) => const <Course>[],
+  );
+
+  final report = await service.syncScheduleReminders(
+    courses: courses,
+    termStartDate: termStart,
+    timeTable: timeTable,
+    settings: settings,
+  );
+  ref.read(reminderSyncReportProvider.notifier).state = report;
+  return report;
+}

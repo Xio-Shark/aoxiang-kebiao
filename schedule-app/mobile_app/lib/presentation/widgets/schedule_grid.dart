@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/course.dart';
+import '../../domain/entities/section_time.dart';
 import 'course_detail_sheet.dart';
 import 'schedule_grid_metrics.dart';
 import 'schedule_grid_parts.dart';
@@ -10,6 +11,7 @@ class ScheduleGrid extends StatelessWidget {
   final List<DateTime> weekDates;
   final String monthText;
   final List<Course> courses;
+  final SectionTimeTable timeTable;
   final int? highlightedWeekday;
   final VoidCallback onSwipePrevious;
   final VoidCallback onSwipeNext;
@@ -20,6 +22,7 @@ class ScheduleGrid extends StatelessWidget {
     required this.weekDates,
     required this.monthText,
     required this.courses,
+    required this.timeTable,
     required this.highlightedWeekday,
     required this.onSwipePrevious,
     required this.onSwipeNext,
@@ -28,6 +31,13 @@ class ScheduleGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final groupedCourses = _groupCoursesByWeekday(courses);
+    final now = DateTime.now();
+    final activeSection = highlightedWeekday != null
+        ? timeTable.currentSectionNumber(now)
+        : null;
+    final timelineFraction = highlightedWeekday != null
+        ? timeTable.currentTimelineFraction(now)
+        : null;
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -52,7 +62,10 @@ class ScheduleGrid extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  const TimeColumn(),
+                  TimeColumn(
+                    timeTable: timeTable,
+                    activeSection: activeSection,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Row(
@@ -61,9 +74,13 @@ class ScheduleGrid extends StatelessWidget {
                         final isToday = weekday == highlightedWeekday;
                         return Expanded(
                           child: DayColumn(
+                            weekday: weekday,
+                            timeTable: timeTable,
                             isHighlighted: isToday,
                             isToday: isToday,
                             courses: groupedCourses[weekday] ?? const [],
+                            activeSection: activeSection,
+                            currentTimeFraction: timelineFraction,
                             onCourseTap: (course) {
                               _showCourseDetail(context, course);
                             },
@@ -93,17 +110,23 @@ class ScheduleGrid extends StatelessWidget {
   }
 
   void _showCourseDetail(BuildContext context, Course course) {
-    final dayCourses = courses.where((c) => c.weekday == course.weekday).toList();
+    final dayCourses =
+        courses.where((c) => c.weekday == course.weekday).toList();
     final overlapping = dayCourses.where((other) {
-      final start = course.startSection > other.startSection ? course.startSection : other.startSection;
-      final end = course.endSection < other.endSection ? course.endSection : other.endSection;
+      final start = course.startSection > other.startSection
+          ? course.startSection
+          : other.startSection;
+      final end = course.endSection < other.endSection
+          ? course.endSection
+          : other.endSection;
       return start <= end;
     }).toList();
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      showDragHandle: true,
+      isScrollControlled: true,
+      showDragHandle: false,
       builder: (context) => CourseDetailSheet(
         course: course,
         overlappingCourses: overlapping,

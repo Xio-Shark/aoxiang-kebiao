@@ -49,6 +49,11 @@
 			<array>
 				<string>public.data</string>
 				<string>public.content</string>
+				<string>com.adobe.pdf</string>
+				<string>public.comma-separated-values-text</string>
+				<string>public.tab-separated-values-text</string>
+				<string>public.html</string>
+				<string>public.plain-text</string>
 				<string>org.openxmlformats.wordprocessingml.document</string>
 				<string>org.openxmlformats.spreadsheetml.sheet</string>
 				<string>public.json</string>

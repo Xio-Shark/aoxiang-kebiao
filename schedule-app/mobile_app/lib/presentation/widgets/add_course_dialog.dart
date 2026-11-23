@@ -105,10 +105,8 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
 
     result.when(
       success: (_) {
-        ref.invalidate(scheduleProvider);
-        for (var w = 1; w <= 25; w++) {
-          ref.invalidate(weekScheduleProvider(w));
-        }
+        invalidateAllScheduleCaches(ref);
+        syncCourseReminders(ref);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(isEdit ? '课程更新成功' : '课程添加成功')),
@@ -235,15 +233,34 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
               Row(
                 children: [
                   Expanded(
+                    flex: 3,
                     child: DropdownButtonFormField<int>(
-                      value: _startSection,
+                      value: _startSection.clamp(
+                        1,
+                        ref.watch(sectionTimeTableProvider).sectionCount,
+                      ),
                       decoration: const InputDecoration(
                         labelText: '开始节次',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
-                      items: List.generate(12, (i) => i + 1)
-                          .map((s) => DropdownMenuItem(value: s, child: Text('第$s节')))
+                      items: ref
+                          .watch(sectionTimeTableProvider)
+                          .slots
+                          .map(
+                            (slot) => DropdownMenuItem(
+                              value: slot.section,
+                              child: Text(
+                                '第${slot.section}节 (${slot.startText})',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _startSection = val);
@@ -252,14 +269,20 @@ class _AddCourseDialogState extends ConsumerState<AddCourseDialog> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
+                    flex: 2,
                     child: DropdownButtonFormField<int>(
                       value: _sectionCount,
                       decoration: const InputDecoration(
                         labelText: '节数',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
-                      items: [1, 2, 3, 4]
+                      items: const [1, 2, 3, 4]
                           .map((c) => DropdownMenuItem(value: c, child: Text('$c节课')))
                           .toList(),
                       onChanged: (val) {
