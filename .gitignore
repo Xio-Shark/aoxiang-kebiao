@@ -3,6 +3,7 @@
 *.aab
 *.ipa
 apk_output/
+dist/
 翱翔课表.apk
 
 # Flutter / Dart
